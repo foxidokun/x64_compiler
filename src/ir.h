@@ -7,7 +7,18 @@
 namespace ir {
     enum class instruction_type_t {
         PUSH,
-        POP
+        POP,
+        ADD,
+        SUB,
+        MUL,
+        DIV,
+        INC,
+        DEC,
+        CALL,
+        RET,
+        HALT,
+        INP,
+        OUT
         //...
     };
 

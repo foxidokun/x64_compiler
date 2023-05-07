@@ -9,20 +9,9 @@
 const int PAGE_SIZE            = 4096;
 const int EXEC_BUF_THRESHOLD   = 10;
 
-const int BUF_ADDR_REGISTER    = 0b1000;        // r8
+const int BUF_ADDR_REGISTER    = x64::REG_R8;  // r8
 
-const int EXTENDED_REG_MASK     = 0b1000;       // REX part
-const int LOWER_REG_BITS_MASK   = 0b0111;       // SIB part
-const int REX_BYTE_IF_EXTENDED  = 0b01000001;   // REX mask if BUF_ADDR_REGISTER > 7
 
-const int IMM_MODRM_MODE_BIT        = 0b10000000;
-const int DOUBLE_REG_MODRM_MODE_BIT = 0b00000100;
-const int SINGLE_REG_MODRM_MODE_BIT = 0b00000000;
-
-const int PUSH_MOD_REG_BITS         = 0b00110000;
-const int POP_MOD_REG_BITS          = 0b00000000;
-
-const int SIB_INDEX_OFFSET = 3;
 
 //----------------------------------------------------------------------------------------------------------------------
 // Prototypes
@@ -30,6 +19,7 @@ const int SIB_INDEX_OFFSET = 3;
 
 namespace x64 {
     static void emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct);
+    static void emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct);
 
     static void emit_instruction(code_t *self, instruction_t *x64_instruct);
 
@@ -77,6 +67,10 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
             case ir::instruction_type_t::POP:
                 emit_push_or_pop(self, ir_code->instructions + instr_num);
                 break;
+            case ir::instruction_type_t::ADD:
+            case ir::instruction_type_t::SUB:
+                emit_add_or_sub(self, ir_code->instructions + instr_num);
+                break;
             default:
                 break;
         }
@@ -98,7 +92,6 @@ void x64::execute(code_t *self) {
 
 static void x64::emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct) {
     assert(self && ir_instruct);
-    assert(self->exec_buf_size + EXEC_BUF_THRESHOLD <= self->exec_buf_capacity);
     assert(ir_instruct->type == ir::instruction_type_t::PUSH || ir_instruct->type == ir::instruction_type_t::POP);
     emit_debug_nop(self);
 
@@ -138,6 +131,35 @@ static void x64::emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct) 
     }
 
     emit_instruction(self, &x64_instruct);
+
+    resize_if_needed(self);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
+    assert(self && ir_instruct);
+    assert(ir_instruct->type == ir::instruction_type_t::ADD || ir_instruct->type == ir::instruction_type_t::SUB);
+
+    bool is_add = ir_instruct->type == ir::instruction_type_t::ADD;
+
+    instruction_t pop_instruct = {
+            .opcode = POP_r32 | REG_RAX,
+    };
+
+    instruction_t additive_instruct = {
+            .require_REX = true,
+            .require_ModRM = true,
+            .require_SIB = true,
+
+            .REX    = REX_BYTE_IF_64_BIT,
+            .opcode = (is_add) ? ADD_m64_r64 : SUB_m64_r64,
+            .ModRM  = DOUBLE_REG_MODRM_MODE_BIT,
+            .SIB    = REG_RSP << SIB_BASE_OFFSET | REG_RSP << SIB_INDEX_OFFSET
+    };
+
+    emit_instruction(self, &pop_instruct);
+    emit_instruction(self, &additive_instruct);
 
     resize_if_needed(self);
 }

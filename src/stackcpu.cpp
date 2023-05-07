@@ -12,6 +12,7 @@ namespace stackcpu {
     static bool has_valid_header(const uint8_t *binary);
 
     static void insert_push_or_pop(ir::code_t *ir_code, const uint8_t **binary_ptr);
+    static void insert_opcode_without_args(ir::code_t *ir_code, const uint8_t **binary_ptr);
 
     static void populate_args(ir::instruction_t *instruct, const uint8_t **binary_ptr);
 }
@@ -68,6 +69,20 @@ ir::code_t *stackcpu::translate_to_ir(const stackcpu::code_t *self) {
                 insert_push_or_pop(ir_code, &binary);
                 break;
 
+            case opcode_type_t::add:
+            case opcode_type_t::sub:
+            case opcode_type_t::mul:
+            case opcode_type_t::div:
+            case opcode_type_t::inc:
+            case opcode_type_t::dec:
+            case opcode_type_t::ret:
+            case opcode_type_t::halt:
+            case opcode_type_t::inp:
+            case opcode_type_t::out:
+                log (INFO, "Translating opcode without args");
+                insert_opcode_without_args(ir_code, &binary);
+                break;
+
             default:
                 log(WARN, "Unsupported opcode %d, skipping...", opcode.opcode);
                 opcode_size = 1;
@@ -121,6 +136,40 @@ static void stackcpu::insert_push_or_pop(ir::code_t *ir_code, const uint8_t **bi
     ir::code_insert(ir_code, &instruct);
     *binary_ptr = binary;
 }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+#define TRANSLATE_TYPE(stack_type, ir_type)                              \
+    case opcode_type_t::stack_type:                                      \
+        log (INFO, "opcode type: " #ir_type " (stack " #stack_type ")"); \
+        instruct.type = ir::instruction_type_t::ir_type;                 \
+        break;
+
+static void stackcpu::insert_opcode_without_args(ir::code_t *ir_code, const uint8_t **binary_ptr) {
+    const uint8_t *binary = *binary_ptr;
+    opcode_t opcode = *(opcode_t *) binary;
+    binary++;
+
+    ir::instruction_t instruct = {};
+
+    switch ((opcode_type_t) opcode.opcode) {
+        TRANSLATE_TYPE(add,  ADD)
+        TRANSLATE_TYPE(sub,  SUB)
+        TRANSLATE_TYPE(inc,  INC)
+        TRANSLATE_TYPE(dec,  DEC)
+        TRANSLATE_TYPE(mul,  MUL)
+        TRANSLATE_TYPE(div,  DIV)
+        TRANSLATE_TYPE(ret,  RET)
+        TRANSLATE_TYPE(halt, HALT)
+        TRANSLATE_TYPE(inp,  INP)
+        TRANSLATE_TYPE(out,  OUT)
+    }
+
+    ir::code_insert(ir_code, &instruct);
+    *binary_ptr = binary;
+}
+
+#undef TRANSLATE_TYPE
 
 //----------------------------------------------------------------------------------------------------------------------
 
