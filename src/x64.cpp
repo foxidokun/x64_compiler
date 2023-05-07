@@ -9,15 +9,18 @@
 const int PAGE_SIZE            = 4096;
 const int EXEC_BUF_THRESHOLD   = 10;
 
-const int BUF_ADDR_REGISTER    = 0b1000; // r8
+const int BUF_ADDR_REGISTER    = 0b1000;        // r8
 
-const int EXTENDED_REG_MASK     = 0b1000;
-const int LOWER_REG_BITS_MASK   = 0b0111;
-const int REX_BYTE_IF_EXTENDED = 0b01000001;
+const int EXTENDED_REG_MASK     = 0b1000;       // REX part
+const int LOWER_REG_BITS_MASK   = 0b0111;       // SIB part
+const int REX_BYTE_IF_EXTENDED  = 0b01000001;   // REX mask if BUF_ADDR_REGISTER > 7
 
 const int IMM_MODRM_MODE_BIT        = 0b10000000;
-const int DOUBLE_REG_MODRM_MODE_BIT = 0b00110100;
-const int SINGLE_REG_MODRM_MODE_BIT = 0b00110000;
+const int DOUBLE_REG_MODRM_MODE_BIT = 0b00000100;
+const int SINGLE_REG_MODRM_MODE_BIT = 0b00000000;
+
+const int PUSH_MOD_REG_BITS         = 0b00110000;
+const int POP_MOD_REG_BITS          = 0b00000000;
 
 const int SIB_INDEX_OFFSET = 3;
 
@@ -26,7 +29,7 @@ const int SIB_INDEX_OFFSET = 3;
 //----------------------------------------------------------------------------------------------------------------------
 
 namespace x64 {
-    static void emit_push(code_t *self, ir::instruction_t *ir_instruct);
+    static void emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct);
 
     static void emit_instruction(code_t *self, instruction_t *x64_instruct);
 
@@ -71,7 +74,10 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
     for (size_t instr_num = 0; instr_num < ir_code->size; ++instr_num) {
         switch (ir_code->instructions[instr_num].type) {
             case ir::instruction_type_t::PUSH:
-                emit_push(self, ir_code->instructions + instr_num);
+            case ir::instruction_type_t::POP:
+                emit_push_or_pop(self, ir_code->instructions + instr_num);
+                break;
+            default:
                 break;
         }
     }
@@ -90,34 +96,42 @@ void x64::execute(code_t *self) {
 // Generators
 //----------------------------------------------------------------------------------------------------------------------
 
-static void x64::emit_push(code_t *self, ir::instruction_t *ir_instruct) {
+static void x64::emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct) {
     assert(self && ir_instruct);
     assert(self->exec_buf_size + EXEC_BUF_THRESHOLD <= self->exec_buf_capacity);
-    assert(ir_instruct->type == ir::instruction_type_t::PUSH);
+    assert(ir_instruct->type == ir::instruction_type_t::PUSH || ir_instruct->type == ir::instruction_type_t::POP);
     emit_debug_nop(self);
 
-    log (INFO, "emitting push");
+    log (INFO, "emitting push/pop");
 
     instruction_t x64_instruct = {};
+    bool is_push = ir_instruct->type == ir::instruction_type_t::PUSH;
 
     if (ir_instruct->need_mem_arg)
     {
-        log (INFO, "\t push memory mode");
-        x64_instruct.opcode = PUSH_m32;
+        log (INFO, "\t push/pop memory mode");
+        x64_instruct.opcode = (is_push) ? PUSH_m32 : POP_m32;
         generate_memory_arguments(&x64_instruct, ir_instruct);
+
+        if (is_push) {
+            x64_instruct.ModRM |= PUSH_MOD_REG_BITS;
+        } else {
+            x64_instruct.ModRM |= POP_MOD_REG_BITS;
+        }
     }
     else if (ir_instruct->need_reg_arg)
     {
         log (INFO, "\t reg arg: %s", REG_NAMES[ir_instruct->reg_num]);
         assert (ir_instruct->reg_num < 8 && "unsupported reg");
 
-        x64_instruct.opcode = x64_OPCODES::PUSH_r32;
+        x64_instruct.opcode = (is_push) ? PUSH_r32 : POP_r32;
         x64_instruct.opcode |= ir_instruct->reg_num;
     }
     else if (ir_instruct->need_imm_arg)
     {
         log (INFO, "\t imm arg: %d", ir_instruct->need_imm_arg);
 
+        assert(is_push && "can't pop to imm");
         x64_instruct.opcode     = PUSH_i32;
         x64_instruct.require_imm32  = true;
         x64_instruct.imm32      = ir_instruct->imm_arg;
@@ -140,6 +154,8 @@ static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::inst
 
     if (ir_instruct->need_imm_arg) {
         x64_instruct->ModRM |= IMM_MODRM_MODE_BIT;
+        x64_instruct->require_imm32 = true;
+        x64_instruct->imm32 = ir_instruct->imm_arg;
     }
 
     if (ir_instruct->need_reg_arg) {
@@ -154,9 +170,6 @@ static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::inst
     }
 
     log (INFO, "SIB byte: %x", *(uint8_t *) &x64_instruct->SIB);
-
-    x64_instruct->require_imm32 = true;
-    x64_instruct->imm32 = (ir_instruct->need_imm_arg) ? ir_instruct->imm_arg : 0;
     log (INFO, "imm arg value: %d", x64_instruct->imm32);
 }
 

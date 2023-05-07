@@ -11,7 +11,7 @@
 namespace stackcpu {
     static bool has_valid_header(const uint8_t *binary);
 
-    static void insert_push(ir::code_t *ir_code, const uint8_t **binary_ptr);
+    static void insert_push_or_pop(ir::code_t *ir_code, const uint8_t **binary_ptr);
 
     static void populate_args(ir::instruction_t *instruct, const uint8_t **binary_ptr);
 }
@@ -63,8 +63,9 @@ ir::code_t *stackcpu::translate_to_ir(const stackcpu::code_t *self) {
 
         switch ((opcode_type_t) opcode.opcode) {
             case opcode_type_t::push:
-                log(INFO, "Translating PUSH with m: %d, r: %d, i: %d", opcode.m, opcode.r, opcode.i);
-                insert_push(ir_code, &binary);
+            case opcode_type_t::pop:
+                log(INFO, "Translating PUSH/POP with m: %d, r: %d, i: %d", opcode.m, opcode.r, opcode.i);
+                insert_push_or_pop(ir_code, &binary);
                 break;
 
             default:
@@ -103,12 +104,18 @@ static bool stackcpu::has_valid_header(const uint8_t *binary) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-static void stackcpu::insert_push(ir::code_t *ir_code, const uint8_t **binary_ptr) {
+static void stackcpu::insert_push_or_pop(ir::code_t *ir_code, const uint8_t **binary_ptr) {
     const uint8_t *binary = *binary_ptr;
     opcode_t opcode = *(opcode_t *) binary;
-    assert((opcode_type_t) opcode.opcode == opcode_type_t::push);
+    assert((opcode_type_t) opcode.opcode == opcode_type_t::push ||
+           (opcode_type_t) opcode.opcode == opcode_type_t::pop);
 
-    ir::instruction_t instruct = {.type = ir::instruction_type_t::PUSH};
+    ir::instruction_t instruct = {};
+    if ((opcode_type_t) opcode.opcode == opcode_type_t::push) {
+        instruct.type = ir::instruction_type_t::PUSH;
+    } else {
+        instruct.type = ir::instruction_type_t::POP;
+    }
     populate_args(&instruct, &binary);
 
     ir::code_insert(ir_code, &instruct);

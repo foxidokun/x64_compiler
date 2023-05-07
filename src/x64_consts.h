@@ -16,6 +16,8 @@ namespace x64 {
         PUSH_r32     = 0x50,
         PUSH_i32     = 0x68,
         PUSH_m32     = 0xFF,
+        POP_r32      = 0x58,
+        POP_m32      = 0x8F,
     };
 }
 
