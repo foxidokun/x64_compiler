@@ -11,13 +11,15 @@ const int EXEC_BUF_THRESHOLD   = 10;
 
 const int BUF_ADDR_REGISTER    = 0b1000; // r8
 
-const int EXTENDED_REG_MASK    = 0b1000;
-const int LOWER_REG_BITS_MASK  = 0b0111;
+const int EXTENDED_REG_MASK     = 0b1000;
+const int LOWER_REG_BITS_MASK   = 0b0111;
+const int REX_BYTE_IF_EXTENDED = 0b01000001;
 
-const int IMM_MODRM_MODE_BIT        = 0b01000000;
+const int IMM_MODRM_MODE_BIT        = 0b10000000;
 const int DOUBLE_REG_MODRM_MODE_BIT = 0b00110100;
 const int SINGLE_REG_MODRM_MODE_BIT = 0b00110000;
 
+const int SIB_INDEX_OFFSET = 3;
 
 //----------------------------------------------------------------------------------------------------------------------
 // Prototypes
@@ -102,8 +104,7 @@ static void x64::emit_push(code_t *self, ir::instruction_t *ir_instruct) {
     {
         log (INFO, "\t push memory mode");
         x64_instruct.opcode = PUSH_m32;
-
-
+        generate_memory_arguments(&x64_instruct, ir_instruct);
     }
     else if (ir_instruct->need_reg_arg)
     {
@@ -131,7 +132,7 @@ static void x64::emit_push(code_t *self, ir::instruction_t *ir_instruct) {
 
 static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::instruction_t *ir_instruct) {
     if (BUF_ADDR_REGISTER & EXTENDED_REG_MASK) {
-        x64_instruct->REX = 0b01000001;
+        x64_instruct->REX = REX_BYTE_IF_EXTENDED;
         x64_instruct->require_REX = true;
     }
 
@@ -147,7 +148,7 @@ static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::inst
         x64_instruct->require_SIB = true;
         x64_instruct->SIB |= (BUF_ADDR_REGISTER & LOWER_REG_BITS_MASK) ;
         assert (ir_instruct->reg_num < 8 && "unsupported reg");
-        x64_instruct->SIB |= ir_instruct->reg_num << 3;
+        x64_instruct->SIB |= ir_instruct->reg_num << SIB_INDEX_OFFSET;
     } else {
         x64_instruct->ModRM |= SINGLE_REG_MODRM_MODE_BIT;
     }
