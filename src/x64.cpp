@@ -72,33 +72,37 @@ void x64::code_delete(code_t *self) {
 x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
     x64::code_t *self = code_new();
 
-    for (size_t instr_num = 0; instr_num < ir_code->size; ++instr_num) {
-        switch (ir_code->instructions[instr_num].type) {
+    ir::instruction_t *ir_instruct = ir_code->instructions;
+
+    while (ir_instruct) {
+        switch (ir_instruct->type) {
             case ir::instruction_type_t::PUSH:
             case ir::instruction_type_t::POP:
-                emit_push_or_pop(self, ir_code->instructions + instr_num);
+                emit_push_or_pop(self, ir_instruct);
                 break;
 
             case ir::instruction_type_t::ADD:
             case ir::instruction_type_t::SUB:
-                emit_add_or_sub(self, ir_code->instructions + instr_num);
+                emit_add_or_sub(self, ir_instruct);
                 break;
 
             case ir::instruction_type_t::MUL:
             case ir::instruction_type_t::DIV:
-                emit_mull_or_div(self, ir_code->instructions + instr_num);
+                emit_mull_or_div(self, ir_instruct);
                 break;
 
             case ir::instruction_type_t::SQRT:
             case ir::instruction_type_t::INP:
             case ir::instruction_type_t::OUT:
             case ir::instruction_type_t::HALT:
-                emit_lib_func(self, ir_code->instructions + instr_num);
+                emit_lib_func(self, ir_instruct);
                 break;
 
             default:
                 break;
         }
+
+        ir_instruct = ir::next_insruction(ir_instruct);
     }
 
     return self;

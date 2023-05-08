@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "file.h"
 #include "log.h"
+#include "address_translator.h"
 #include "stackcpu.h"
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -12,7 +13,8 @@ namespace stackcpu {
     static bool has_valid_header(const uint8_t *binary);
 
     static void insert_push_or_pop(ir::code_t *ir_code, const uint8_t **binary_ptr);
-    static void insert_opcode_without_args(ir::code_t *ir_code, const uint8_t **binary_ptr);
+    static void insert_instruction_without_args(ir::code_t *ir_code, const uint8_t **binary_ptr);
+    static void insert_flow_instruction(addr_transl_t *addr_transl, ir::code_t *ir_code, const uint8_t **binary_ptr);
 
     static void populate_args(ir::instruction_t *instruct, const uint8_t **binary_ptr);
 }
@@ -56,11 +58,12 @@ void stackcpu::unload(code_t *self) {
 ir::code_t *stackcpu::translate_to_ir(const stackcpu::code_t *self) {
     ir::code_t *ir_code = ir::code_new();
     const uint8_t *binary = self->binary;
-
+    addr_transl_t *addr_transl = addr_transl_new();
     int opcode_size = 0;
 
     while (binary - self->binary < self->binary_size) {
         opcode_t opcode = *(opcode_t *) binary;
+        addr_transl_insert(addr_transl, binary - self->binary, ir_code->size);
 
         switch ((opcode_type_t) opcode.opcode) {
             case opcode_type_t::push:
@@ -81,8 +84,21 @@ ir::code_t *stackcpu::translate_to_ir(const stackcpu::code_t *self) {
             case opcode_type_t::out:
             case opcode_type_t::sqrt:
                 log (INFO, "Translating opcode without args");
-                insert_opcode_without_args(ir_code, &binary);
+                insert_instruction_without_args(ir_code, &binary);
                 break;
+
+            case opcode_type_t::jne:
+            case opcode_type_t::je:
+            case opcode_type_t::ja:
+            case opcode_type_t::jae:
+            case opcode_type_t::jb:
+            case opcode_type_t::jbe:
+            case opcode_type_t::jmp:
+            case opcode_type_t::call:
+                log (INFO, "Translating flow instruction");
+                insert_flow_instruction(addr_transl, ir_code, &binary);
+                break;
+
 
             default:
                 log(WARN, "Unsupported opcode %d, skipping...", opcode.opcode);
@@ -146,7 +162,7 @@ static void stackcpu::insert_push_or_pop(ir::code_t *ir_code, const uint8_t **bi
         instruct.type = ir::instruction_type_t::ir_type;                 \
         break;
 
-static void stackcpu::insert_opcode_without_args(ir::code_t *ir_code, const uint8_t **binary_ptr) {
+static void stackcpu::insert_instruction_without_args(ir::code_t *ir_code, const uint8_t **binary_ptr) {
     const uint8_t *binary = *binary_ptr;
     opcode_t opcode = *(opcode_t *) binary;
     binary++;
@@ -171,6 +187,35 @@ static void stackcpu::insert_opcode_without_args(ir::code_t *ir_code, const uint
     }
 
     ir::code_insert(ir_code, &instruct);
+    *binary_ptr = binary;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static void stackcpu::insert_flow_instruction(addr_transl_t *addr_transl, ir::code_t *ir_code, const uint8_t **binary_ptr) {
+    const uint8_t *binary = *binary_ptr;
+    opcode_t opcode = *(opcode_t *) binary;
+    ir::instruction_t instruct = {};
+
+    switch ((opcode_type_t) opcode.opcode) {
+        TRANSLATE_TYPE(jmp,  JMP)
+        TRANSLATE_TYPE(ja,   JA)
+        TRANSLATE_TYPE(jae,  JAE)
+        TRANSLATE_TYPE(jb,   JB)
+        TRANSLATE_TYPE(jbe,  JBE)
+        TRANSLATE_TYPE(jne,  JNE)
+        TRANSLATE_TYPE(je,   JE)
+        TRANSLATE_TYPE(call, CALL)
+
+        default:
+            assert(0 && "Unexpected opcode type");
+    }
+
+    populate_args(&instruct, &binary);
+    assert(!instruct.need_reg_arg && !instruct.need_mem_arg && "Unexpected flow arg, compiler can't do it");
+    ir::code_insert(ir_code, &instruct);
+
+    addr_transl_translate(addr_transl, instruct.imm_arg, &ir_code->instructions[ir_code->size-1].imm_arg);
     *binary_ptr = binary;
 }
 
