@@ -18,4 +18,6 @@ enum class result_t {
     }                                                                   \
 }
 
+const int FIXED_PRECISION_MULTIPLIER = 100;
+
 #endif //X64_TRANSLATOR_COMMON_H

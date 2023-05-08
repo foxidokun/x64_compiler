@@ -79,6 +79,7 @@ ir::code_t *stackcpu::translate_to_ir(const stackcpu::code_t *self) {
             case opcode_type_t::halt:
             case opcode_type_t::inp:
             case opcode_type_t::out:
+            case opcode_type_t::sqrt:
                 log (INFO, "Translating opcode without args");
                 insert_opcode_without_args(ir_code, &binary);
                 break;
@@ -163,6 +164,10 @@ static void stackcpu::insert_opcode_without_args(ir::code_t *ir_code, const uint
         TRANSLATE_TYPE(halt, HALT)
         TRANSLATE_TYPE(inp,  INP)
         TRANSLATE_TYPE(out,  OUT)
+        TRANSLATE_TYPE(sqrt, SQRT)
+
+        default:
+            assert(0 && "Unexpected opcode type");
     }
 
     ir::code_insert(ir_code, &instruct);

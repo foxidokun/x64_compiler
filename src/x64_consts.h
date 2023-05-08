@@ -32,21 +32,22 @@ namespace x64 {
     };
 
     enum x64_OPCODES {
-        PUSH_r32     = 0x50,
-        PUSH_i32     = 0x68,
-        PUSH_m32     = 0xFF,
-        POP_r32      = 0x58,
-        POP_m32      = 0x8F,
-        ADD_m64_r64  = 0x01,
-        SUB_m64_r64  = 0x29,
-        DIVMUL_r32   = 0xF7,
+        PUSH_reg     = 0x50,
+        PUSH_imm     = 0x68,
+        PUSH_mem     = 0xFF,
+        POP_reg      = 0x58,
+        POP_mem      = 0x8F,
+        ADD_mem_reg  = 0x01,
+        SUB_mem_reg  = 0x29,
+        DIVMUL_reg   = 0xF7,
+        MOV_reg_imm  = 0x48,
+        CALL_reg     = 0xFF
     };
 
-
-
-    const int EXTENDED_REG_MASK     = 0b1000;       // REX part
-    const int LOWER_REG_BITS_MASK   = 0b0111;       // SIB part
-    const int REX_BYTE_IF_EXTENDED  = 0b01000001;   // REX mask if BUF_ADDR_REGISTER > 7
+    // --- --- --- Some opcode consts --- --- ---
+    const int EXTENDED_REG_MASK         = 0b1000;       // REX part
+    const int LOWER_REG_BITS_MASK       = 0b0111;       // SIB part
+    const int REX_BYTE_IF_EXTENDED      = 0b01000001;   // REX mask if BUF_ADDR_REGISTER > 7
 
     const int IMM_MODRM_MODE_BIT        = 0b10000000;
     const int DOUBLE_REG_MODRM_MODE_BIT = 0b00000100;
@@ -56,13 +57,17 @@ namespace x64 {
     const int MODRM_MUL_REG_BITS        = 0b00100000;
     const int MODRM_DIV_REG_BITS        = 0b00110000;
 
+    const int MODRM_ONLY_RM             = 0b00010000;
+
     const int PUSH_MOD_REG_BITS         = 0b00110000;
     const int POP_MOD_REG_BITS          = 0b00000000;
 
-    const int SIB_INDEX_OFFSET = 3;
-    const int SIB_BASE_OFFSET  = 0;
+    const int MODRM_RM_OFFSET           = 3;
 
-    const int REX_BYTE_IF_64_BIT       = 0b01001000;
+    const int SIB_INDEX_OFFSET          = 3;
+    const int SIB_BASE_OFFSET           = 0;
+
+    const int REX_BYTE_IF_64_BIT        = 0b01001000;
 }
 
 #endif //X64_TRANSLATOR_X64_CONSTS_H

@@ -18,7 +18,8 @@ namespace ir {
         RET,
         HALT,
         INP,
-        OUT
+        OUT,
+        SQRT
         //...
     };
 
