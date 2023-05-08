@@ -51,6 +51,8 @@ void stackcpu::unload(code_t *self) {
         self->binary = nullptr;
         mmap_close(self->mmaped_data);
     }
+
+    free(self);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -110,6 +112,7 @@ ir::code_t *stackcpu::translate_to_ir(const stackcpu::code_t *self) {
         }
     }
 
+    addr_transl_delete(addr_transl);
     return ir_code;
 }
 
@@ -215,7 +218,7 @@ static void stackcpu::insert_flow_instruction(addr_transl_t *addr_transl, ir::co
     assert(!instruct.need_reg_arg && !instruct.need_mem_arg && "Unexpected flow arg, compiler can't do it");
     ir::code_insert(ir_code, &instruct);
 
-    addr_transl_translate(addr_transl, instruct.imm_arg, &ir_code->instructions[ir_code->size-1].imm_arg);
+    addr_transl_translate(addr_transl, instruct.imm_arg, &ir_code->last_instruction->imm_arg);
     *binary_ptr = binary;
 }
 

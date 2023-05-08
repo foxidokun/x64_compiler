@@ -4,12 +4,6 @@
 #include "ir.h"
 
 //----------------------------------------------------------------------------------------------------------------------
-
-namespace ir {
-    static result_t code_resize(code_t *self);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
 // Public
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -46,11 +40,13 @@ void ir::code_insert(code_t *self, instruction_t *instruction) {
     new_instr_node->next = nullptr;
 
     if (self->instructions) {
+        new_instr_node->index        = self->last_instruction->index + 1;
         self->last_instruction->next = new_instr_node;
         self->last_instruction       = new_instr_node;
     } else {
         self->last_instruction = new_instr_node;
         self->instructions     = new_instr_node;
+        new_instr_node->index = 0;
     }
 
     self->size++;

@@ -2,6 +2,8 @@
 #include "log.h"
 #include "address_translator.h"
 
+const uint64_t DEBUG_UNRESOLVED_VALUE = (uint64_t) -1;
+
 //----------------------------------------------------------------------------------------------------------------------
 // Prototypes
 //----------------------------------------------------------------------------------------------------------------------
@@ -42,6 +44,8 @@ void addr_transl_delete(addr_transl_t *self) {
 //----------------------------------------------------------------------------------------------------------------------
 
 void addr_transl_insert(addr_transl_t* self, uint64_t old_addr, uint64_t new_addr) {
+    log(INFO, "Saving %lx -> %lx", old_addr, new_addr);
+
     mapping_t map = {
             .type = mapping_type_t::KNOWN,
             .old_addr = old_addr,
@@ -87,7 +91,10 @@ void addr_transl_translate(addr_transl_t* self, uint64_t old_addr, uint64_t *new
     } else {
         log(INFO, "\tCreated new queue of unresolved");
         sortvec_ctor(&map.new_addr_vec, sizeof(uint64_t *), addr_comp);
+        sortvec_insert(&map.new_addr_vec, &new_addr_ptr);
+
         sortvec_insert(&self->mappings, &map);
+        *new_addr_ptr = (uint64_t) DEBUG_UNRESOLVED_VALUE;
     }
 }
 
@@ -119,7 +126,10 @@ static int  addr_comp(const void *lhs_void, const void *rhs_void) {
 static void update_addrs(mapping_t *mapping, uint64_t new_addr) {
     uint64_t **addresses = (uint64_t **) mapping->new_addr_vec.data;
 
+    log (INFO, "Updating existing addresses...")
+
     for (size_t i = 0; i < mapping->new_addr_vec.size; ++i) {
+        log(INFO, "\tUpdated");
         *(addresses[i]) = new_addr;
     }
 }

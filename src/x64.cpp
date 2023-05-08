@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "common.h"
+#include "address_translator.h"
 #include "x64_consts.h"
 #include "x64.h"
 
@@ -22,6 +23,9 @@ namespace x64 {
     static void emit_add_or_sub (code_t *self, ir::instruction_t *ir_instruct);
     static void emit_mull_or_div(code_t *self, ir::instruction_t *ir_instruct);
     static void emit_lib_func   (code_t *self, ir::instruction_t *ir_instruct);
+
+    static void emit_jmp_or_call (code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl);
+    static void emit_cond_jmp    (code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl);
 
     static void emit_instruction(code_t *self, instruction_t *x64_instruct);
 
@@ -71,10 +75,12 @@ void x64::code_delete(code_t *self) {
 
 x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
     x64::code_t *self = code_new();
-
     ir::instruction_t *ir_instruct = ir_code->instructions;
+    addr_transl_t *addr_transl = addr_transl_new();
 
     while (ir_instruct) {
+        addr_transl_insert(addr_transl, ir_instruct->index, (uint64_t) (self->exec_buf + self->exec_buf_size));
+
         switch (ir_instruct->type) {
             case ir::instruction_type_t::PUSH:
             case ir::instruction_type_t::POP:
@@ -96,6 +102,20 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
             case ir::instruction_type_t::OUT:
             case ir::instruction_type_t::HALT:
                 emit_lib_func(self, ir_instruct);
+                break;
+
+            case ir::instruction_type_t::JMP:
+            case ir::instruction_type_t::CALL:
+                emit_jmp_or_call(self, ir_instruct, addr_transl);
+                break;
+
+            case ir::instruction_type_t::JE:
+            case ir::instruction_type_t::JNE:
+            case ir::instruction_type_t::JA:
+            case ir::instruction_type_t::JAE:
+            case ir::instruction_type_t::JB:
+            case ir::instruction_type_t::JBE:
+                emit_cond_jmp(self, ir_instruct, addr_transl);
                 break;
 
             default:
@@ -260,7 +280,7 @@ static void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
             .imm64         = lib_func_addr
     };
 
-    instruction_t call_imm64 = {
+    instruction_t call_reg = {
             .require_ModRM = true,
             .opcode = CALL_reg,
             .ModRM = ONLY_REG_MODRM_MODE_BIT | MODRM_ONLY_RM | REG_RAX
@@ -268,7 +288,7 @@ static void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
 
     emit_instruction(self, &pop_arg_instruct);
     emit_instruction(self, &mov_addr_instr);
-    emit_instruction(self, &call_imm64);
+    emit_instruction(self, &call_reg);
 
     if (ir_instruct->type == ir::instruction_type_t::INP || ir_instruct->type == ir::instruction_type_t::SQRT) {
         instruction_t push_res_instr = {
@@ -279,6 +299,41 @@ static void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
     }
 }
 
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl) {
+    assert(self && ir_instruct && addr_transl);
+    emit_debug_nop(self);
+
+    instruction_t mov_addr_instr = {
+            .require_REX   = true,
+            .require_ModRM = true,
+            .require_imm64 = true,
+            .REX           = REX_BYTE_IF_64_BIT,
+            .opcode        = MOV_reg_imm,
+            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RAX,
+            .imm64         = 0, // Will be updated later
+    };
+
+    emit_instruction(self, &mov_addr_instr);
+    addr_transl_translate(addr_transl, ir_instruct->imm_arg, (uint64_t *)(self->exec_buf + self->exec_buf_size) - 1); // TODO Cringe что это в этой функции и такой хак вообще есть
+
+    uint8_t MODRM_REG_BITS = (ir_instruct->type == ir::instruction_type_t::CALL) ? CALL_MOD_REG_BITS : JMP_MOD_REG_BITS;
+
+    instruction_t call_reg = {
+            .require_ModRM = true,
+            .opcode = CALL_reg,
+            .ModRM = ONLY_REG_MODRM_MODE_BIT | MODRM_REG_BITS | REG_RAX
+    };
+
+    emit_instruction(self, &call_reg);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl) {
+    assert (self && ir_instruct && addr_transl);
+}
 //----------------------------------------------------------------------------------------------------------------------
 
 static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::instruction_t *ir_instruct) {

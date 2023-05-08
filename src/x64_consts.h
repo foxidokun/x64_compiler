@@ -62,6 +62,9 @@ namespace x64 {
     const int PUSH_MOD_REG_BITS         = 0b00110000;
     const int POP_MOD_REG_BITS          = 0b00000000;
 
+    const int CALL_MOD_REG_BITS         = 0b00010000;
+    const int JMP_MOD_REG_BITS          = 0b00100000;
+
     const int MODRM_RM_OFFSET           = 3;
 
     const int SIB_INDEX_OFFSET          = 3;

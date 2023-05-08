@@ -5,7 +5,7 @@
 #error "No CMD_DEF macros"
 #endif
 
-/// Requires CMD_DEF macros with 4 parameters: opcode name, number, code, and (bool) is argument required
+/// Requires CMD_DEF macros with 4 parameters: opcode name, index, code, and (bool) is argument required
 
 // b = pop(stk), a = pop (stk), typeof (a, b) = int
 //

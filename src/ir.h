@@ -41,6 +41,7 @@ namespace ir {
         unsigned char reg_num;
         uint64_t imm_arg;
 
+        size_t index;
         instruction_t *next;
     };
 
