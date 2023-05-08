@@ -29,6 +29,9 @@ namespace x64 {
     static inline void emit_debug_nop(code_t *self);
     static void resize_if_needed(code_t *self);
 
+    static void mul_fix_precision_multiplier(code_t *self);
+    static void div_fix_precision_multiplier(code_t *self);
+
     static void     stdlib_out (uint64_t arg);
     static uint64_t stdlib_inp (uint64_t arg);
     static uint64_t stdlib_sqrt(uint64_t arg);
@@ -48,7 +51,7 @@ x64::code_t *x64::code_new() {
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 #ifndef NDEBUG
-    self->exec_buf[0] = 0xCC;
+    self->exec_buf[0] = 0xCC; // INT 03 DEBUG BYTE
     self->exec_buf_size += 1;
 #endif
 
@@ -150,7 +153,7 @@ static void x64::emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct) 
         assert(is_push && "can't pop to imm");
         x64_instruct.opcode     = PUSH_imm;
         x64_instruct.require_imm32  = true;
-        x64_instruct.imm32      = ir_instruct->imm_arg;
+        x64_instruct.imm32      = ir_instruct->imm_arg * FIXED_PRECISION_MULTIPLIER;
     }
 
     emit_instruction(self, &x64_instruct);
@@ -161,6 +164,7 @@ static void x64::emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct) 
 static void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
     assert(self && ir_instruct);
     assert(ir_instruct->type == ir::instruction_type_t::ADD || ir_instruct->type == ir::instruction_type_t::SUB);
+    emit_debug_nop(self);
 
     bool is_add = ir_instruct->type == ir::instruction_type_t::ADD;
     log (INFO, "emitting add/sub, is_add: %d", is_add);
@@ -189,35 +193,36 @@ static void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
 static void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instruct) {
     assert(self && ir_instruct);
     assert(ir_instruct->type == ir::instruction_type_t::MUL || ir_instruct->type == ir::instruction_type_t::DIV);
+    emit_debug_nop(self);
 
     bool is_mul = ir_instruct->type == ir::instruction_type_t::MUL;
     log (INFO, "emitting mul/div, is_mul: %d", is_mul);
 
-    instruction_t pop_op2_instruct = {
-            .opcode = POP_reg | REG_RBX,
-    };
+    instruction_t pop_op2_instruct = {.opcode = POP_reg | REG_RBX};
+    emit_instruction(self, &pop_op2_instruct);
 
-    instruction_t pop_op1_instruct = {
-            .opcode = POP_reg | REG_RAX,
-    };
+    instruction_t pop_op1_instruct = {.opcode = POP_reg | REG_RAX};
+    emit_instruction(self, &pop_op1_instruct);
+
+    if (!is_mul) {
+        div_fix_precision_multiplier(self);
+    }
 
     uint8_t modrm_reg_bits = (is_mul) ? MODRM_MUL_REG_BITS : MODRM_DIV_REG_BITS;
-
-    //TODO Fixed precision multiplier
-
     instruction_t mult_instruct = {
             .require_ModRM = true,
             .opcode = DIVMUL_reg,
             .ModRM  = ONLY_REG_MODRM_MODE_BIT | modrm_reg_bits | REG_RBX
     };
+    emit_instruction(self, &mult_instruct);
+
+    if (is_mul) {
+        mul_fix_precision_multiplier(self);
+    }
 
     instruction_t push_res_instruct = {
             .opcode = PUSH_reg | REG_RAX,
     };
-
-    emit_instruction(self, &pop_op2_instruct);
-    emit_instruction(self, &pop_op1_instruct);
-    emit_instruction(self, &mult_instruct);
     emit_instruction(self, &push_res_instruct);
 }
 
@@ -225,6 +230,7 @@ static void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instr
 
 static void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
     assert(self && ir_instruct);
+    emit_debug_nop(self);
 
     log(INFO, "Emitting lib function...");
 
@@ -246,7 +252,7 @@ static void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
             .require_imm64 = true,
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET,
+            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RAX,
             .imm64         = lib_func_addr
     };
 
@@ -352,6 +358,50 @@ static void x64::emit_instruction(code_t *self, instruction_t *x64_instruct) {
 // Static
 //----------------------------------------------------------------------------------------------------------------------
 
+static void x64::mul_fix_precision_multiplier(code_t *self) {
+    instruction_t load_precision_multiplier = {
+            .require_REX   = true,
+            .require_ModRM = true,
+            .require_imm64 = true,
+            .REX           = REX_BYTE_IF_64_BIT,
+            .opcode        = MOV_reg_imm,
+            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RBX,
+            .imm64         = FIXED_PRECISION_MULTIPLIER
+    };
+    emit_instruction(self, &load_precision_multiplier);
+
+    instruction_t mult_instruct = {
+            .require_ModRM = true,
+            .opcode = DIVMUL_reg,
+            .ModRM  = ONLY_REG_MODRM_MODE_BIT | MODRM_DIV_REG_BITS | REG_RBX
+    };
+    emit_instruction(self, &mult_instruct);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::div_fix_precision_multiplier(code_t *self) {
+    instruction_t load_precision_multiplier = {
+            .require_REX   = true,
+            .require_ModRM = true,
+            .require_imm64 = true,
+            .REX           = REX_BYTE_IF_64_BIT,
+            .opcode        = MOV_reg_imm,
+            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RBX,
+            .imm64         = FIXED_PRECISION_MULTIPLIER
+    };
+    emit_instruction(self, &load_precision_multiplier);
+
+    instruction_t mult_instruct = {
+            .require_ModRM = true,
+            .opcode = DIVMUL_reg,
+            .ModRM  = ONLY_REG_MODRM_MODE_BIT | MODRM_MUL_REG_BITS | REG_RBX
+    };
+    emit_instruction(self, &mult_instruct);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 static void x64::resize_if_needed(x64::code_t *self) {
     if (self->exec_buf_size + EXEC_BUF_THRESHOLD >= self->exec_buf_capacity) {
         self->exec_buf = (uint8_t*) mremap(self->exec_buf, self->exec_buf_capacity,
@@ -365,17 +415,20 @@ static void x64::resize_if_needed(x64::code_t *self) {
 
 static uint64_t x64::stdlib_inp(uint64_t arg) {
     printf("INPUT: ");
-    uint64_t res = 0;
+
+    const int SAFE_ALIGNMENT = 32; // scanf requires alignment to 16 bytes, but out program can't provide it
+    alignas(SAFE_ALIGNMENT) uint64_t res = 0;
+
     scanf("%ld", &res);
     printf("\n");
 
-    return res;
+    return res * FIXED_PRECISION_MULTIPLIER;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 static void x64::stdlib_out(uint64_t arg) {
-    printf("OUTPUT: %ld\n", arg);
+    printf("OUTPUT: %ld.%02ld\n", arg/FIXED_PRECISION_MULTIPLIER, arg%FIXED_PRECISION_MULTIPLIER);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -389,7 +442,7 @@ static uint64_t x64::stdlib_sqrt(uint64_t arg) {
 
 [[noreturn]]
 static void x64::stdlib_halt(uint64_t arg) {
-    exit(0);
+    abort();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
