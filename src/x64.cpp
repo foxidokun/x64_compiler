@@ -288,7 +288,7 @@ static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::inst
     if (ir_instruct->need_imm_arg) {
         x64_instruct->ModRM |= IMM_MODRM_MODE_BIT;
         x64_instruct->require_imm32 = true;
-        x64_instruct->imm32 = ir_instruct->imm_arg;
+        x64_instruct->imm32 = ir_instruct->imm_arg * sizeof (uint64_t);
     }
 
     if (ir_instruct->need_reg_arg) {
