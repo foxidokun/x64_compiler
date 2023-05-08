@@ -39,6 +39,7 @@ namespace x64 {
         POP_m32      = 0x8F,
         ADD_m64_r64  = 0x01,
         SUB_m64_r64  = 0x29,
+        DIVMUL_r32   = 0xF7,
     };
 
 
@@ -50,6 +51,10 @@ namespace x64 {
     const int IMM_MODRM_MODE_BIT        = 0b10000000;
     const int DOUBLE_REG_MODRM_MODE_BIT = 0b00000100;
     const int SINGLE_REG_MODRM_MODE_BIT = 0b00000000;
+    const int ONLY_REG_MODRM_MODE_BIT   = 0b11000000;
+
+    const int MODRM_MUL_REG_BITS        = 0b00100000;
+    const int MODRM_DIV_REG_BITS        = 0b00110000;
 
     const int PUSH_MOD_REG_BITS         = 0b00110000;
     const int POP_MOD_REG_BITS          = 0b00000000;

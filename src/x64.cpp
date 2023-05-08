@@ -7,7 +7,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 const int PAGE_SIZE            = 4096;
-const int EXEC_BUF_THRESHOLD   = 10;
+const int EXEC_BUF_THRESHOLD   = 15;  // 15 bytes per x64 instruction
 
 const int BUF_ADDR_REGISTER    = x64::REG_R8;  // r8
 
@@ -20,6 +20,7 @@ const int BUF_ADDR_REGISTER    = x64::REG_R8;  // r8
 namespace x64 {
     static void emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct);
     static void emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct);
+    static void emit_mull_or_div(code_t *self, ir::instruction_t *ir_instruct);
 
     static void emit_instruction(code_t *self, instruction_t *x64_instruct);
 
@@ -41,7 +42,7 @@ x64::code_t *x64::code_new() {
 
 #ifndef NDEBUG
     self->exec_buf[0] = 0xCC;
-    self->exec_buf_size = 1;
+    self->exec_buf_size += 1;
 #endif
 
     self->exec_buf_capacity = PAGE_SIZE;
@@ -67,10 +68,17 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
             case ir::instruction_type_t::POP:
                 emit_push_or_pop(self, ir_code->instructions + instr_num);
                 break;
+
             case ir::instruction_type_t::ADD:
             case ir::instruction_type_t::SUB:
                 emit_add_or_sub(self, ir_code->instructions + instr_num);
                 break;
+
+            case ir::instruction_type_t::MUL:
+            case ir::instruction_type_t::DIV:
+                emit_mull_or_div(self, ir_code->instructions + instr_num);
+                break;
+
             default:
                 break;
         }
@@ -83,7 +91,8 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
 
 [[noreturn]]
 void x64::execute(code_t *self) {
-    asm ("jmp %0": :"r" (self->exec_buf));
+    asm ("mov %0, %%r8\n"
+         "jmp %0\n": :"r" (self->exec_buf) : "r8");
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -131,8 +140,6 @@ static void x64::emit_push_or_pop(code_t *self, ir::instruction_t *ir_instruct) 
     }
 
     emit_instruction(self, &x64_instruct);
-
-    resize_if_needed(self);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -148,9 +155,9 @@ static void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
     };
 
     instruction_t additive_instruct = {
-            .require_REX = true,
+            .require_REX   = true,
             .require_ModRM = true,
-            .require_SIB = true,
+            .require_SIB   = true,
 
             .REX    = REX_BYTE_IF_64_BIT,
             .opcode = (is_add) ? ADD_m64_r64 : SUB_m64_r64,
@@ -160,8 +167,40 @@ static void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
 
     emit_instruction(self, &pop_instruct);
     emit_instruction(self, &additive_instruct);
+}
 
-    resize_if_needed(self);
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instruct) {
+    assert(self && ir_instruct);
+    assert(ir_instruct->type == ir::instruction_type_t::MUL || ir_instruct->type == ir::instruction_type_t::DIV);
+
+    bool is_mul = ir_instruct->type == ir::instruction_type_t::MUL;
+
+    instruction_t pop_op2_instruct = {
+            .opcode = POP_r32 | REG_RBX,
+    };
+
+    instruction_t pop_op1_instruct = {
+            .opcode = POP_r32 | REG_RAX,
+    };
+
+    uint8_t modrm_reg_bits = (is_mul) ? MODRM_MUL_REG_BITS : MODRM_DIV_REG_BITS;
+
+    instruction_t mult_instruct = {
+            .require_ModRM = true,
+            .opcode = DIVMUL_r32,
+            .ModRM  = ONLY_REG_MODRM_MODE_BIT | modrm_reg_bits | REG_RBX
+    };
+
+    instruction_t push_res_instruct = {
+            .opcode = PUSH_r32 | REG_RAX,
+    };
+
+    emit_instruction(self, &pop_op2_instruct);
+    emit_instruction(self, &pop_op1_instruct);
+    emit_instruction(self, &mult_instruct);
+    emit_instruction(self, &push_res_instruct);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -237,6 +276,8 @@ static void x64::emit_instruction(code_t *self, instruction_t *x64_instruct) {
         *((uint64_t *) (self->exec_buf + self->exec_buf_size)) = x64_instruct->require_imm64;
         self->exec_buf_size += sizeof(uint64_t);
     }
+
+    resize_if_needed(self);
 }
 
 
