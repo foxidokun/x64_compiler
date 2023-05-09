@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include "common.h"
 #include "x64_consts.h"
+#include "x64_stdlib.h"
 #include "x64.h"
 
-// TODO Вынести stdlib в отдельный файл
 // TODO еще повыносить в функции и в файлы (как минимум все emit'ы в отдельный файл)
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -47,12 +47,6 @@ namespace x64 {
 
     static void mul_fix_precision_multiplier(code_t *self);
     static void div_fix_precision_multiplier(code_t *self);
-
-    static void     stdlib_out (uint64_t arg);
-    static uint64_t stdlib_inp ();
-    static uint64_t stdlib_sqrt(uint64_t arg);
-
-    [[noreturn]] static void stdlib_halt();
 
     static uint8_t translate_cond_jump_opcode(ir::instruction_t *ir_instruct);
 }
@@ -586,40 +580,6 @@ static void x64::resize_if_needed(x64::code_t *self) {
 
         self->exec_buf_capacity *= 2;
     }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-static uint64_t x64::stdlib_inp() {
-    printf("INPUT: ");
-
-    const int SAFE_ALIGNMENT = 32; // scanf requires alignment to 16 bytes, but out program can't provide it
-    alignas(SAFE_ALIGNMENT) uint64_t res = 0;
-
-    scanf("%ld", &res);
-    printf("\n");
-
-    return res * FIXED_PRECISION_MULTIPLIER;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-static void x64::stdlib_out(uint64_t arg) {
-    printf("OUTPUT: %ld.%02ld\n", arg/FIXED_PRECISION_MULTIPLIER, arg%FIXED_PRECISION_MULTIPLIER);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-static uint64_t x64::stdlib_sqrt(uint64_t arg) {
-    double d_arg = (double) arg *  FIXED_PRECISION_MULTIPLIER;
-    return (uint64_t) sqrt(d_arg);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-[[noreturn]]
-static void x64::stdlib_halt() {
-    abort();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
