@@ -10,6 +10,9 @@ namespace x64 {
         uint8_t *exec_buf;
         size_t exec_buf_capacity;
         size_t exec_buf_size;
+
+        uint8_t *ram_buf;
+        size_t ram_buf_capacity;
     };
 
     code_t *code_new();
@@ -25,14 +28,16 @@ namespace x64 {
     {
         struct
         {
-            uint8_t require_REX   :1;
-            uint8_t require_ModRM :1;
-            uint8_t require_SIB   :1;
-            uint8_t require_imm32 :1;
-            uint8_t require_imm64 :1;
+            uint8_t require_REX    :1;
+            uint8_t require_prefix :1;
+            uint8_t require_ModRM  :1;
+            uint8_t require_SIB    :1;
+            uint8_t require_imm32  :1;
+            uint8_t require_imm64  :1;
         };
 
         uint8_t REX;
+        uint8_t prefix;
         uint8_t opcode;
         uint8_t ModRM;
         uint8_t SIB;

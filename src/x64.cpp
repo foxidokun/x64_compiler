@@ -4,10 +4,13 @@
 #include <stdio.h>
 #include "common.h"
 #include "address_translator.h"
+#include "address_translator32.h"
 #include "x64_consts.h"
 #include "x64.h"
 
 //----------------------------------------------------------------------------------------------------------------------
+
+#define DEBUG_BREAK
 
 const int PAGE_SIZE            = 4096;
 const int EXEC_BUF_THRESHOLD   = 15;  // 15 bytes per x64 instruction
@@ -23,9 +26,11 @@ namespace x64 {
     static void emit_add_or_sub (code_t *self, ir::instruction_t *ir_instruct);
     static void emit_mull_or_div(code_t *self, ir::instruction_t *ir_instruct);
     static void emit_lib_func   (code_t *self, ir::instruction_t *ir_instruct);
+    static void emit_ret(code_t *self, ir::instruction_t *ir_instruct);
 
-    static void emit_jmp_or_call (code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl);
-    static void emit_cond_jmp    (code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl);
+    static void emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl);
+
+    static void emit_cond_jmp   (code_t *self, ir::instruction_t *ir_instruct, addr_transl32_t *addr_transl);
 
     static void emit_instruction(code_t *self, instruction_t *x64_instruct);
 
@@ -37,10 +42,12 @@ namespace x64 {
     static void div_fix_precision_multiplier(code_t *self);
 
     static void     stdlib_out (uint64_t arg);
-    static uint64_t stdlib_inp (uint64_t arg);
+    static uint64_t stdlib_inp ();
     static uint64_t stdlib_sqrt(uint64_t arg);
 
-    [[noreturn]] static void stdlib_halt(uint64_t arg);
+    [[noreturn]] static void stdlib_halt();
+
+    static uint8_t translate_cond_jump_opcode(ir::instruction_t *ir_instruct);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -54,12 +61,17 @@ x64::code_t *x64::code_new() {
     self->exec_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_EXEC | PROT_WRITE,
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
-#ifndef NDEBUG
+    self->ram_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                                                                    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+
+#ifdef DEBUG_BREAK
     self->exec_buf[0] = 0xCC; // INT 03 DEBUG BYTE
     self->exec_buf_size += 1;
 #endif
 
     self->exec_buf_capacity = PAGE_SIZE;
+    self->ram_buf_capacity = PAGE_SIZE;
 
     return self;
 }
@@ -68,6 +80,7 @@ x64::code_t *x64::code_new() {
 
 void x64::code_delete(code_t *self) {
     munmap(self->exec_buf, self->exec_buf_capacity);
+    munmap(self->ram_buf, self->ram_buf_capacity);
     free(self);
 }
 
@@ -77,9 +90,11 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
     x64::code_t *self = code_new();
     ir::instruction_t *ir_instruct = ir_code->instructions;
     addr_transl_t *addr_transl = addr_transl_new();
+    addr_transl32_t *addr_transl32 = addr_transl32_new();
 
     while (ir_instruct) {
         addr_transl_insert(addr_transl, ir_instruct->index, (uint64_t) (self->exec_buf + self->exec_buf_size));
+        addr_transl_insert(addr_transl32, ir_instruct->index, (uint64_t) (self->exec_buf + self->exec_buf_size));
 
         switch (ir_instruct->type) {
             case ir::instruction_type_t::PUSH:
@@ -109,16 +124,21 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
                 emit_jmp_or_call(self, ir_instruct, addr_transl);
                 break;
 
+            case ir::instruction_type_t::RET:
+                emit_ret(self, ir_instruct);
+                break;
+
             case ir::instruction_type_t::JE:
             case ir::instruction_type_t::JNE:
             case ir::instruction_type_t::JA:
             case ir::instruction_type_t::JAE:
             case ir::instruction_type_t::JB:
             case ir::instruction_type_t::JBE:
-                emit_cond_jmp(self, ir_instruct, addr_transl);
+                emit_cond_jmp(self, ir_instruct, addr_transl32);
                 break;
 
             default:
+                assert(0 && "Unsupported instruction");
                 break;
         }
 
@@ -132,8 +152,8 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
 
 [[noreturn]]
 void x64::execute(code_t *self) {
-    asm ("mov %0, %%r8\n"
-         "jmp %0\n": :"r" (self->exec_buf) : "r8");
+    asm ("mov %1, %%r8\n"
+         "jmp %0\n": :"r" (self->exec_buf), "r" (self->ram_buf) : "r8");
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -286,7 +306,10 @@ static void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
             .ModRM = ONLY_REG_MODRM_MODE_BIT | MODRM_ONLY_RM | REG_RAX
     };
 
-    emit_instruction(self, &pop_arg_instruct);
+    if (ir_instruct->type != ir::instruction_type_t::INP && ir_instruct->type != ir::instruction_type_t::HALT) {
+        emit_instruction(self, &pop_arg_instruct);
+    }
+
     emit_instruction(self, &mov_addr_instr);
     emit_instruction(self, &call_reg);
 
@@ -297,6 +320,28 @@ static void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
 
         emit_instruction(self, &push_res_instr);
     }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::emit_ret(code_t *self, ir::instruction_t *ir_instruct) {
+    assert (self && ir_instruct);
+    emit_debug_nop(self);
+
+    instruction_t pop_val_instruct = {.opcode = POP_reg | REG_RBX};
+    emit_instruction(self, &pop_val_instruct);
+
+    instruction_t pop_retaddr_instruct = {.opcode = POP_reg | REG_RAX};
+    emit_instruction(self, &pop_retaddr_instruct);
+
+    instruction_t push_val_instruct = {.opcode = PUSH_reg | REG_RBX};
+    emit_instruction(self, &push_val_instruct);
+
+    instruction_t push_retaddr_instruct = {.opcode = PUSH_reg | REG_RAX};
+    emit_instruction(self, &push_retaddr_instruct);
+
+    instruction_t ret_instruct = {.opcode = RET};
+    emit_instruction(self, &ret_instruct);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -331,8 +376,36 @@ static void x64::emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct, 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-static void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl) {
+static void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct, addr_transl32_t *addr_transl) {
     assert (self && ir_instruct && addr_transl);
+    emit_debug_nop(self);
+
+
+    instruction_t pop_op2_instruct = {.opcode = POP_reg | REG_RBX};
+    emit_instruction(self, &pop_op2_instruct);
+
+    instruction_t pop_op1_instruct = {.opcode = POP_reg | REG_RAX};
+    emit_instruction(self, &pop_op1_instruct);
+
+    instruction_t cmp_instruct = {
+        .require_REX    = true,
+        .require_ModRM  = true,
+        .REX            = REX_BYTE_IF_64_BIT,
+        .opcode         = CMP_reg_reg,
+        .ModRM          = ONLY_REG_MODRM_MODE_BIT | REG_RBX << MODRM_RM_OFFSET | REG_RAX
+    };
+    emit_instruction(self, &cmp_instruct);
+
+    const uint32_t cur_addr = (uint32_t) ((uint64_t) self->exec_buf + self->exec_buf_size) + 6;
+    instruction_t cond_jmp_instruct = {
+        .require_prefix = true,
+        .require_imm32  = true,
+        .prefix         = CONDJMP_imm_prefix,
+        .opcode         = translate_cond_jump_opcode(ir_instruct),
+        .imm32          = -cur_addr
+    };
+    emit_instruction(self, &cond_jmp_instruct);
+    addr_transl32_translate(addr_transl, ir_instruct->imm_arg, (uint32_t *)(self->exec_buf + self->exec_buf_size) - 1);
 }
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -382,6 +455,11 @@ static void x64::emit_instruction(code_t *self, instruction_t *x64_instruct) {
     if (x64_instruct->require_REX) {
         log (INFO, "\t REX byte");
         self->exec_buf[self->exec_buf_size++] = x64_instruct->REX;
+    }
+
+    if (x64_instruct->require_prefix) {
+        log (INFO, "\t REX byte");
+        self->exec_buf[self->exec_buf_size++] = x64_instruct->prefix;
     }
 
     log(INFO, "\tOpcode: %x", x64_instruct->opcode);
@@ -472,7 +550,7 @@ static void x64::resize_if_needed(x64::code_t *self) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-static uint64_t x64::stdlib_inp(uint64_t arg) {
+static uint64_t x64::stdlib_inp() {
     printf("INPUT: ");
 
     const int SAFE_ALIGNMENT = 32; // scanf requires alignment to 16 bytes, but out program can't provide it
@@ -500,9 +578,31 @@ static uint64_t x64::stdlib_sqrt(uint64_t arg) {
 //----------------------------------------------------------------------------------------------------------------------
 
 [[noreturn]]
-static void x64::stdlib_halt(uint64_t arg) {
+static void x64::stdlib_halt() {
     abort();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
+#define TRANSLATE_TYPE_TO_OPCODE(type, opcode_const)                                \
+    case ir::instruction_type_t::type:                                              \
+        log (INFO, "\tCond type: " #type " resulted in " #opcode_const " opcode");  \
+        opcode = x64::opcode_const; break;
+
+static uint8_t x64::translate_cond_jump_opcode(ir::instruction_t *ir_instruct) {
+    uint8_t opcode = 0;
+    log(INFO, "Decoding conditional IF...");
+
+    switch (ir_instruct->type) {
+        TRANSLATE_TYPE_TO_OPCODE(JE,    JE_imm)
+        TRANSLATE_TYPE_TO_OPCODE(JNE,   JNE_imm)
+        TRANSLATE_TYPE_TO_OPCODE(JA,    JA_imm)
+        TRANSLATE_TYPE_TO_OPCODE(JAE,   JNB_imm)
+        TRANSLATE_TYPE_TO_OPCODE(JB,    JNAE_imm)
+        TRANSLATE_TYPE_TO_OPCODE(JBE,   JNA_imm)
+    }
+
+    return opcode;
+}
+
+#undef TRANSLATE_TYPE_TO_OPCODE

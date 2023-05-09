@@ -1,4 +1,5 @@
 #include <string.h>
+#include "log.h"
 #include "vector.h"
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -53,9 +54,7 @@ void sortvec_insert(sortvec_t *self, void *elem) {
         void *prev_elem = (char *)self->data + self->elem_size * (self->size - 2);
         void *cur_elem  = (char *)prev_elem + self->elem_size;
 
-        if (self->comparator(prev_elem, cur_elem) < 0) {
-            qsort(self->data, self->size, self->elem_size, self->comparator);
-        }
+        qsort(self->data, self->size, self->elem_size, self->comparator);
     }
 
 }

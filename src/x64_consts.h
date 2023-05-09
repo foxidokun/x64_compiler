@@ -41,7 +41,18 @@ namespace x64 {
         SUB_mem_reg  = 0x29,
         DIVMUL_reg   = 0xF7,
         MOV_reg_imm  = 0x48,
-        CALL_reg     = 0xFF
+        CALL_reg     = 0xFF,
+        CMP_reg_reg  = 0x39,
+        CONDJMP_imm_prefix = 0x0F,
+        RET          = 0xC3,
+
+        // Cond jumps
+        JNAE_imm     = 0x82, // jb
+        JNB_imm      = 0x83, // jae
+        JE_imm       = 0x84, // je
+        JNE_imm      = 0x85, // jne
+        JNA_imm      = 0x86, // jbe
+        JA_imm       = 0x87, // ja
     };
 
     // --- --- --- Some opcode consts --- --- ---

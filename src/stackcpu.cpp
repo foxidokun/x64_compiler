@@ -215,10 +215,13 @@ static void stackcpu::insert_flow_instruction(addr_transl_t *addr_transl, ir::co
     }
 
     populate_args(&instruct, &binary);
+    uint64_t old_addr = instruct.imm_arg;
+    instruct.imm_arg = 0;
+
     assert(!instruct.need_reg_arg && !instruct.need_mem_arg && "Unexpected flow arg, compiler can't do it");
     ir::code_insert(ir_code, &instruct);
 
-    addr_transl_translate(addr_transl, instruct.imm_arg, &ir_code->last_instruction->imm_arg);
+    addr_transl_translate(addr_transl, old_addr, &ir_code->last_instruction->imm_arg);
     *binary_ptr = binary;
 }
 
