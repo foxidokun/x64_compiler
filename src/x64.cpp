@@ -3,10 +3,11 @@
 #include <math.h>
 #include <stdio.h>
 #include "common.h"
-#include "address_translator.h"
-#include "address_translator32.h"
 #include "x64_consts.h"
 #include "x64.h"
+
+// TODO Вынести stdlib в отдельный файл
+// TODO еще повыносить в функции и в файлы (как минимум все emit'ы в отдельный файл)
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -16,6 +17,11 @@ const int PAGE_SIZE            = 4096;
 const int EXEC_BUF_THRESHOLD   = 15;  // 15 bytes per x64 instruction
 
 const int BUF_ADDR_REGISTER    = x64::REG_R8;  // r8
+
+const int TOTAL_PASSES                = 2;
+const int PASS_INDEX_TO_WRITE         = 1;
+const int PASS_INDEX_TO_CALC_OFFSETS  = 0;
+
 
 //----------------------------------------------------------------------------------------------------------------------
 // Prototypes
@@ -28,11 +34,12 @@ namespace x64 {
     static void emit_lib_func   (code_t *self, ir::instruction_t *ir_instruct);
     static void emit_ret(code_t *self, ir::instruction_t *ir_instruct);
 
-    static void emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl);
+    static void emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct);
+    static void emit_cond_jmp   (code_t *self, ir::instruction_t *ir_instruct);
 
-    static void emit_cond_jmp   (code_t *self, ir::instruction_t *ir_instruct, addr_transl32_t *addr_transl);
-
-    static void emit_instruction(code_t *self, instruction_t *x64_instruct);
+    static void emit_instruction            (code_t *self, instruction_t *x64_instruct);
+    static void emit_instruction_calc_offset(code_t *self, instruction_t *x64_instruct);
+    static void emit_instruction_write      (code_t *self, instruction_t *x64_instruct);
 
     static void generate_memory_arguments(instruction_t *x64_instruct, ir::instruction_t *ir_instruct);
     static inline void emit_debug_nop(code_t *self);
@@ -60,18 +67,19 @@ x64::code_t *x64::code_new() {
 
     self->exec_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_EXEC | PROT_WRITE,
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-
     self->ram_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_READ | PROT_WRITE,
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
+    self->exec_buf_capacity = PAGE_SIZE;
+    self->ram_buf_capacity  = PAGE_SIZE;
 
 #ifdef DEBUG_BREAK
-    self->exec_buf[0] = 0xCC; // INT 03 DEBUG BYTE
+    self->exec_buf[0] = DEBUG_SYSCALL_BYTE; // INT 03 DEBUG BYTE
     self->exec_buf_size += 1;
 #endif
 
-    self->exec_buf_capacity = PAGE_SIZE;
-    self->ram_buf_capacity = PAGE_SIZE;
+    self->addr_transl = addr_transl_new();
+    self->pass_index = 0;
 
     return self;
 }
@@ -81,6 +89,7 @@ x64::code_t *x64::code_new() {
 void x64::code_delete(code_t *self) {
     munmap(self->exec_buf, self->exec_buf_capacity);
     munmap(self->ram_buf, self->ram_buf_capacity);
+    addr_transl_delete(self->addr_transl);
     free(self);
 }
 
@@ -89,13 +98,12 @@ void x64::code_delete(code_t *self) {
 x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
     x64::code_t *self = code_new();
     ir::instruction_t *ir_instruct = ir_code->instructions;
-    addr_transl_t *addr_transl = addr_transl_new();
-    addr_transl32_t *addr_transl32 = addr_transl32_new();
 
     while (ir_instruct) {
-        addr_transl_insert(addr_transl, ir_instruct->index, (uint64_t) (self->exec_buf + self->exec_buf_size));
-        addr_transl_insert(addr_transl32, ir_instruct->index, (uint64_t) (self->exec_buf + self->exec_buf_size));
+        result_t res = addr_transl_remember_old_addr(self->addr_transl, ir_instruct->index);
+        if (res == result_t::ERROR) { log(ERROR, "Failed to store old addr in self->addr_transl"); return nullptr; }
 
+        //TODO Вынести switch в функцию
         switch (ir_instruct->type) {
             case ir::instruction_type_t::PUSH:
             case ir::instruction_type_t::POP:
@@ -121,7 +129,7 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
 
             case ir::instruction_type_t::JMP:
             case ir::instruction_type_t::CALL:
-                emit_jmp_or_call(self, ir_instruct, addr_transl);
+                emit_jmp_or_call(self, ir_instruct);
                 break;
 
             case ir::instruction_type_t::RET:
@@ -134,7 +142,7 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
             case ir::instruction_type_t::JAE:
             case ir::instruction_type_t::JB:
             case ir::instruction_type_t::JBE:
-                emit_cond_jmp(self, ir_instruct, addr_transl32);
+                emit_cond_jmp(self, ir_instruct);
                 break;
 
             default:
@@ -216,6 +224,7 @@ static void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
     instruction_t pop_instruct = {
             .opcode = POP_reg | REG_RAX,
     };
+    emit_instruction(self, &pop_instruct);
 
     instruction_t additive_instruct = {
             .require_REX   = true,
@@ -227,8 +236,6 @@ static void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
             .ModRM  = DOUBLE_REG_MODRM_MODE_BIT,
             .SIB    = REG_RSP << SIB_BASE_OFFSET | REG_RSP << SIB_INDEX_OFFSET
     };
-
-    emit_instruction(self, &pop_instruct);
     emit_instruction(self, &additive_instruct);
 }
 
@@ -346,8 +353,8 @@ static void x64::emit_ret(code_t *self, ir::instruction_t *ir_instruct) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-static void x64::emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct, addr_transl_t *addr_transl) {
-    assert(self && ir_instruct && addr_transl);
+static void x64::emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct) {
+    assert(self && ir_instruct);
     emit_debug_nop(self);
 
     instruction_t mov_addr_instr = {
@@ -357,14 +364,12 @@ static void x64::emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct, 
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
             .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RAX,
-            .imm64         = 0, // Will be updated later
+            .imm64         = addr_transl_translate(self->addr_transl, ir_instruct->imm_arg)
     };
 
     emit_instruction(self, &mov_addr_instr);
-    addr_transl_translate(addr_transl, ir_instruct->imm_arg, (uint64_t *)(self->exec_buf + self->exec_buf_size) - 1); // TODO Cringe что это в этой функции и такой хак вообще есть
 
     uint8_t MODRM_REG_BITS = (ir_instruct->type == ir::instruction_type_t::CALL) ? CALL_MOD_REG_BITS : JMP_MOD_REG_BITS;
-
     instruction_t call_reg = {
             .require_ModRM = true,
             .opcode = CALL_reg,
@@ -376,8 +381,8 @@ static void x64::emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct, 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-static void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct, addr_transl32_t *addr_transl) {
-    assert (self && ir_instruct && addr_transl);
+static void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct) {
+    assert (self && ir_instruct);
     emit_debug_nop(self);
 
 
@@ -397,15 +402,16 @@ static void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct, add
     emit_instruction(self, &cmp_instruct);
 
     const uint32_t cur_addr = (uint32_t) ((uint64_t) self->exec_buf + self->exec_buf_size) + 6;
+    const uint32_t rel_pos  = (uint32_t) (addr_transl_translate(self->addr_transl, ir_instruct->imm_arg)-cur_addr);
+
     instruction_t cond_jmp_instruct = {
         .require_prefix = true,
         .require_imm32  = true,
         .prefix         = CONDJMP_imm_prefix,
         .opcode         = translate_cond_jump_opcode(ir_instruct),
-        .imm32          = -cur_addr
+        .imm32          = rel_pos
     };
     emit_instruction(self, &cond_jmp_instruct);
-    addr_transl32_translate(addr_transl, ir_instruct->imm_arg, (uint32_t *)(self->exec_buf + self->exec_buf_size) - 1);
 }
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -450,6 +456,40 @@ static inline void x64::emit_debug_nop(code_t *self) {
 //----------------------------------------------------------------------------------------------------------------------
 
 static void x64::emit_instruction(code_t *self, instruction_t *x64_instruct) {
+    switch (self->pass_index) {
+        case PASS_INDEX_TO_CALC_OFFSETS:
+            emit_instruction_calc_offset(self, x64_instruct);
+            break;
+
+        case PASS_INDEX_TO_WRITE:
+            emit_instruction_write(self, x64_instruct);
+            break;
+
+        default:
+            assert(0 && "Unexpected pass_index");
+            break;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::emit_instruction_calc_offset(code_t *self, instruction_t *x64_instruct) {
+    uint command_size = 1; // Opcode
+    if (x64_instruct->require_REX)    { command_size += 1; }
+    if (x64_instruct->require_prefix) { command_size += 1; }
+    if (x64_instruct->require_ModRM)  { command_size += 1; }
+    if (x64_instruct->require_SIB)    { command_size += 1; }
+    if (x64_instruct->require_imm32)  { command_size += sizeof(uint32_t); }
+    if (x64_instruct->require_imm64)  { command_size += sizeof(uint64_t); }
+
+    addr_transl_insert_with_new_addr(self->addr_transl, (uint64_t) self->exec_buf + self->exec_buf_size);
+
+    self->exec_buf_size += command_size;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static void x64::emit_instruction_write(code_t *self, instruction_t *x64_instruct) {
     log (INFO, "Emitting instruction...");
 
     if (x64_instruct->require_REX) {

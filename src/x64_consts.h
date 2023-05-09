@@ -82,6 +82,8 @@ namespace x64 {
     const int SIB_BASE_OFFSET           = 0;
 
     const int REX_BYTE_IF_64_BIT        = 0b01001000;
+
+    const int DEBUG_SYSCALL_BYTE        = 0xCC;
 }
 
 #endif //X64_TRANSLATOR_X64_CONSTS_H

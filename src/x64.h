@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "ir.h"
 #include "file.h"
+#include "address_translator.h"
+
 
 namespace x64 {
     struct code_t {
@@ -13,6 +15,9 @@ namespace x64 {
 
         uint8_t *ram_buf;
         size_t ram_buf_capacity;
+
+        addr_transl_t *addr_transl;
+        uint pass_index;
     };
 
     code_t *code_new();
