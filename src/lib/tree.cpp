@@ -6,8 +6,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-#include "common.h"
-#include "colors.h"
+#include "../common.h"
 #include "file.h"
 #include "log.h"
 
@@ -225,7 +224,7 @@ int tree::graph_dump (node_t *node, const char *reason_fmt, char **var_names, ch
     FILE *dump_file = fopen (filepath, "w");
     if (dump_file == nullptr)
     {
-        LOG (log::ERR, "Failed to open dump file '%s'", filepath);
+        log (ERROR, "Failed to open dump file '%s'", filepath);
         return counter;
     }
 
@@ -245,7 +244,7 @@ int tree::graph_dump (node_t *node, const char *reason_fmt, char **var_names, ch
     sprintf (cmd, "dot -T png -o %s.png %s", filepath, filepath);
     if (system (cmd) != 0)
     {
-        LOG (log::ERR, "Failed to execute '%s'", cmd);
+        log (ERROR, "Failed to execute '%s'", cmd);
     }
 
     #if HTML_LOGS
@@ -259,7 +258,7 @@ int tree::graph_dump (node_t *node, const char *reason_fmt, char **var_names, ch
     #else
         char buf[REASON_LEN] = "";
         vsprintf (buf, reason_fmt, args);
-        LOG (log::INF, "Dump path: %s.png, reason: %s", filepath, buf);
+        log (INFO, "Dump path: %s.png, reason: %s", filepath, buf);
     #endif
 
     fflush (get_log_stream ());
@@ -274,30 +273,6 @@ void tree::save_tree (tree_t *tree, FILE *stream)
     assert (stream != nullptr && "invalid pointer");
 
     save_tree (tree->head_node, stream);
-}
-
-void tree::save_tree (node_t *start_node, FILE *stream)
-{
-    assert (start_node != nullptr && "invalid pointer");
-    assert (stream     != nullptr && "invalid pointer");
-
-    walk_f dump_pre = [](node_t *node, void *param, bool)
-    {
-        FILE *output = (FILE *) param;
-        fprintf (output, "{ %d %d\n", (int) node->type, node->data);
-        return true;
-    };
-
-    walk_f dump_post = [](node_t*, void *param, bool)
-    {
-        FILE *output = (FILE *) param;
-        fprintf (output, "}\n");
-        return true;
-    };
-
-    dfs_exec (start_node, dump_pre,  stream,
-                          nullptr,   nullptr,
-                          dump_post, stream);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -492,184 +467,3 @@ static tree::node_t *load_subtree (const char **str)
 #undef SKIP_SPACES
 #undef CHECK  
 #undef TRY
-// -------------------------------------------------------------------------------------------------
-
-#define WRAP_SUBGRAPH(node_type, color)                                                            \
-if (node->type == tree::node_type_t::node_type)                                                    \
-{                                                                                                  \
-    fprintf (stream, "subgraph cluster_%d {\ncolor=%s;\n", subgraph_cnt, FUNC_DEF_SUBGRAPH_COLOR); \
-}
-
-
-static bool node_codegen (tree::node_t *node, void *void_params, bool)
-{
-    assert (node   != nullptr && "invalid pointer");
-    assert (void_params != nullptr && "invalid pointer");
-
-    dfs_params *params = (dfs_params *) void_params;
-
-    static int subgraph_cnt = 0;
-    subgraph_cnt++;
-
-    FILE *stream = params->stream;
-    char name_buf [MAX_NODE_LEN] = "";
-    const char *color_buf = "";
-    format_node (node, name_buf, params->var_names, params->func_names, &color_buf);
-
-    fprintf (stream, "node_%p [label = \"%s\", fillcolor = \"%s\"]\n", node, name_buf, color_buf);
-
-    if (node->left != nullptr)
-    {
-        fprintf (stream, "node_%p -> node_%p\n", node, node->left);
-    }
-
-    if (node->right != nullptr)
-    {
-        fprintf (stream, "node_%p -> node_%p\n", node, node->right);
-    }
-
-    WRAP_SUBGRAPH (FUNC_DEF, FUNC_DEF_SUBGRAPH_COLOR);
-    WRAP_SUBGRAPH (WHILE,       WHILE_SUBGRAPH_COLOR);
-    WRAP_SUBGRAPH (ELSE,         ELSE_SUBGRAPH_COLOR);
-
-    return true;
-}
-
-// -------------------------------------------------------------------------------------------------
-
-static bool middle_codegen (tree::node_t *node, void *void_params, bool)
-{
-    assert (node   != nullptr && "invalid pointer");
-    assert (void_params != nullptr && "invalid pointer");
-
-    dfs_params *params = (dfs_params *) void_params;
-    FILE *stream = params->stream;
-
-    static int subgraph_cnt = 0;
-    subgraph_cnt++;
-
-    if (node->type == tree::node_type_t::ELSE && node->left != nullptr)
-    {
-        fprintf (stream, "} \nsubgraph cluster_else_%d {\ncolor=cyan;\n", subgraph_cnt);
-    }
-
-    return true;
-}
-
-// -------------------------------------------------------------------------------------------------
-
-static bool close_subgraph (tree::node_t *node, void *void_params, bool)
-{
-    assert (node   != nullptr && "invalid pointer");
-    assert (void_params != nullptr && "invalid pointer");
-
-    dfs_params *params = (dfs_params *) void_params;
-    FILE *stream = params->stream;
-
-    if (node->type == tree::node_type_t::FUNC_DEF || 
-        node->type == tree::node_type_t::WHILE    || 
-        node->type == tree::node_type_t::ELSE)
-    {
-        fprintf (stream, "}\n");
-    }
-
-    return true;
-}
-
-// -------------------------------------------------------------------------------------------------
-
-#define _PRINT(color_const, fmt, ...)   \
-{                                       \
-    *color = color_const;               \
-    sprintf (buf, fmt, ##__VA_ARGS__);  \
-    return;                             \
-}
-
-static void format_node (const tree::node_t *node, char *buf, char **var_names, char **func_names, const char **color) 
-{
-    assert (buf  != nullptr && "invalid pointer");
-    assert (node != nullptr && "invalid pointer");
-
-    switch (node->type)
-    {
-        case tree::node_type_t::NOT_SET:    _PRINT (NOT_SET_COLOR,   "NOT SET");
-        case tree::node_type_t::FICTIOUS:   _PRINT (FICTIOUS_COLOR,  "FICTIOUS");
-        case tree::node_type_t::VAR:
-            if (var_names == nullptr)
-            {
-                _PRINT (VAR_COLOR,       "VAR: #%d",  node->data);
-            } else 
-            {
-                _PRINT (VAR_COLOR,       "VAR: %s",  var_names[node->data]);
-            }
-        case tree::node_type_t::VAL:        _PRINT (VAL_COLOR,       "VAL: %d", node->data);
-        case tree::node_type_t::IF:         _PRINT (IF_COLOR,        "IF");
-        case tree::node_type_t::ELSE:       _PRINT (ELSE_COLOR,      "ELSE");
-        case tree::node_type_t::WHILE:      _PRINT (WHILE_COLOR,     "WHILE");
-        case tree::node_type_t::OP:         _PRINT (OP_COLOR,        "OP: %s", get_op_name ((tree::op_t) node->data));
-        case tree::node_type_t::VAR_DEF:
-            if (var_names == nullptr)
-            {
-                _PRINT (VAR_DEF_COLOR,       "VAR DEF: #%d",  node->data);
-            } else 
-            {
-                _PRINT (VAR_DEF_COLOR,       "VAR DEF: %s",  var_names[node->data]);
-            }
-        case tree::node_type_t::FUNC_DEF:
-            if (func_names == nullptr)
-            {
-                _PRINT (FUNC_DEF_COLOR,       "FUNC DEF: #%d",  node->data);
-            } else 
-            {
-                _PRINT (FUNC_DEF_COLOR,       "FUNC DEF: %s",  func_names[node->data]);
-            }
-        case tree::node_type_t::FUNC_CALL:
-            if (func_names == nullptr)
-            {
-                _PRINT (FUNC_CALL_COLOR,       "FUNC CALL: #%d",  node->data);
-            } else 
-            {
-                _PRINT (FUNC_CALL_COLOR,       "FUNC CALL: %s",  func_names[node->data]);
-            }
-        case tree::node_type_t::RETURN:     _PRINT (RETURN_COLOR,    "RETURN");
-        
-        default:
-            assert (0 && "Unexpected node type");
-    }
-}
-
-#undef _PRINT
-
-// -------------------------------------------------------------------------------------------------
-
-#define _OP(op, name)      \
-    case tree::op_t::op:   \
-        return name;       \
-
-static const char *get_op_name (tree::op_t op)
-{
-    switch (op) {
-        _OP(ADD,    "+")
-        _OP(SUB,    "-")
-        _OP(DIV,    "/")
-        _OP(MUL,    "*")
-        _OP(SQRT,   "sqrt")
-        _OP(SIN,    "sin")
-        _OP(COS,    "cos")
-        _OP(INPUT,  "INP")
-        _OP(OUTPUT, "OUT")
-        _OP(EQ,     "==")
-        _OP(GT,     "&gt;")
-        _OP(LT,     "&lt;")
-        _OP(GE,     "&gt;=") 
-        _OP(LE,     "&lt;=") 
-        _OP(NEQ,    "!=") 
-        _OP(NOT,    "NOT")
-        _OP(AND,    "&&") 
-        _OP(OR,     "||") 
-        _OP(ASSIG,  ":=") 
-
-        default:
-            assert (0 && "Invalid op, possible union error");
-    }
-}
