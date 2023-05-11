@@ -131,7 +131,7 @@ static void x64::emit_instruction_calc_offset(code_t *self, instruction_t *x64_i
     if (x64_instruct->require_imm32)  { command_size += sizeof(uint32_t); }
     if (x64_instruct->require_imm64)  { command_size += sizeof(uint64_t); }
 
-    addr_transl_insert_with_new_addr(self->addr_transl, (uint64_t) self->exec_buf + self->exec_buf_size);
+    addr_transl_insert_with_remembered_addr(self->addr_transl, (uint64_t) self->exec_buf + self->exec_buf_size);
 
     self->exec_buf_size += command_size;
 }
