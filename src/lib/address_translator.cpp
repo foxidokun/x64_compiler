@@ -1,6 +1,6 @@
 #include <assert.h>
-#include "common.h"
-#include "log.h"
+#include "../common.h"
+#include "../log.h"
 #include "address_translator.h"
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 #include "../ir.h"
-#include "../file.h"
-#include "../address_translator.h"
+#include "../lib/file.h"
+#include "../lib/address_translator.h"
 
 
 namespace x64 {

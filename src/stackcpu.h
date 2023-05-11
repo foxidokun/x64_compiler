@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "ir.h"
-#include "file.h"
+#include "lib/file.h"
 
 namespace stackcpu {
     const int SUPPORTED_BINARY_VER = 7;

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "file.h"
+#include "lib/file.h"
 #include "log.h"
-#include "address_translator.h"
+#include "lib/address_translator.h"
 #include "stackcpu.h"
 
 //TODO переписать на два прохода
