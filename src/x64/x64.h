@@ -2,9 +2,9 @@
 #define X64_TRANSLATOR_X64_H
 
 #include <stdint.h>
-#include "ir.h"
-#include "file.h"
-#include "address_translator.h"
+#include "../ir.h"
+#include "../file.h"
+#include "../address_translator.h"
 
 
 namespace x64 {

@@ -4,7 +4,6 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <ctype.h>
 #include <errno.h>
 #include "file.h"
 
