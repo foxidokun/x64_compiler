@@ -1,7 +1,7 @@
 #ifndef X64_TRANSLATOR_COMMON_H
 #define X64_TRANSLATOR_COMMON_H
 
-#include "log.h"
+#include "lib/log.h"
 
 enum class result_t {
     ERROR = -1,
