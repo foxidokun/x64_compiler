@@ -118,8 +118,6 @@ result_t ir::subtree_convert(converter_t *converter, tree::node_t *node, code_t 
 
         case tree::node_type_t::RETURN:
             UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code, true));
-
-            EMIT_M_R_I(PUSH, BASE_MEM_REG, 0);
             EMIT_NONE(RET);
             break;
 
@@ -152,6 +150,7 @@ result_t ir::subtree_convert(converter_t *converter, tree::node_t *node, code_t 
     EMIT_PUSH_TRUE_FALSE (opcode)
 
 
+//FIXME Слишком большая функция
 result_t ir::convert_op(converter_t *converter, tree::node_t *node, code_t *ir_code) {
     assert (converter != nullptr && "invalid pointer");
     assert (node      != nullptr && "invalid pointer");
@@ -311,17 +310,16 @@ result_t ir::convert_func_def(converter_t *converter, tree::node_t *node, code_t
     assert (node->type == tree::node_type_t::FUNC_DEF && "Invalid call");
 
     converter->global_frame_size_store = converter->frame_size;
-    converter->frame_size = 1;
+    converter->frame_size = 0;
     converter->in_func = true;
 
     uint64_t func_def_end_label = get_label_index(converter);
-    uint64_t ir_jmp_addr = addr_transl_translate(converter->indexed_label_transl, func_def_end_label);
-    EMIT_I (JMP, ir_jmp_addr);
+    uint64_t func_def_ir_indx = addr_transl_translate(converter->indexed_label_transl, func_def_end_label);
+    EMIT_I (JMP, func_def_ir_indx);
+
     register_function_label(converter, node->data);
 
-    EMIT_M_R_I(POP, BASE_MEM_REG, 0);
     convert_func_def_args(converter, node->left, ir_code);
-
     UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code));
 
     register_numeric_label(converter, func_def_end_label);
@@ -496,7 +494,7 @@ static result_t ir::get_var_code(converter_t *converter, int var_num, code_t *ir
             new_instruction.need_reg_arg = true;
             new_instruction.need_imm_arg = true;
             new_instruction.reg_num      = BASE_MEM_REG;
-            new_instruction.imm_arg      = i + 1; //TODO Просмотреть, тут +1 из-за аддреса возврата
+            new_instruction.imm_arg      = i;
 
             update_last_instruction_args(converter, ir_code, &new_instruction);
 

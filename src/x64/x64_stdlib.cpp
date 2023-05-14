@@ -27,8 +27,7 @@ void x64::stdlib_out(uint64_t arg) {
 
 uint64_t x64::stdlib_sqrt(uint64_t arg) {
     double d_arg = (double) arg *  FIXED_PRECISION_MULTIPLIER;
-    uint64_t sqrt_res = (uint64_t) sqrt(d_arg);
-    return sqrt_res;
+    return (uint64_t) sqrt(d_arg);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
