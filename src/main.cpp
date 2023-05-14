@@ -24,6 +24,8 @@ int main() {
     execute(x64_code);
 }
 
+
+//TODO УБРАТЬ ЭТОТ КОД В РЕЛИЗЕ
 const char INS_NAMES[][6] = {
         "PUSH",
         "POP",

@@ -45,6 +45,7 @@ void ir::code_insert(code_t *self, instruction_t *instruction) {
         self->last_instruction->next = new_instruction;
         self->last_instruction = new_instruction;
     } else {
+        self->instructions            = new_instruction;
         self->last_instruction        = new_instruction;
         self->last_instruction->index = 0;
     }

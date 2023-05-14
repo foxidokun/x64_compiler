@@ -42,7 +42,6 @@ ir::code_t *ir::from_ast(tree::node_t *node) {
     converter_t *converter = converter_new();
     if (!converter) {return nullptr;}
 
-
     bool need_another_pass = true;
     while (need_another_pass) {
         emit_code_begin(converter, ir_code);
