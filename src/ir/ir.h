@@ -54,7 +54,6 @@ namespace ir {
     struct code_t {
         instruction_t *instructions;
         size_t size;
-        size_t capacity;
 
         instruction_t *last_instruction;
     };
