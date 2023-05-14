@@ -6,7 +6,7 @@
 
 namespace ir {
     enum class instruction_type_t {
-        PUSH,
+        PUSH = 0, // TODO remove 0
         POP,
         ADD,
         SUB,
@@ -14,6 +14,8 @@ namespace ir {
         DIV,
         INC,
         DEC,
+        SIN,
+        COS,
         RET,
         HALT,
         INP,
@@ -30,6 +32,8 @@ namespace ir {
         //...
     };
 
+//----------------------------------------------------------------------------------------------------------------------
+
     struct instruction_t {
         instruction_type_t type;
         struct {
@@ -45,12 +49,17 @@ namespace ir {
         instruction_t *next;
     };
 
+//----------------------------------------------------------------------------------------------------------------------
+
     struct code_t {
         instruction_t *instructions;
         size_t size;
+        size_t capacity;
 
         instruction_t *last_instruction;
     };
+
+//----------------------------------------------------------------------------------------------------------------------
 
     code_t *code_new();
     void code_delete(code_t *self);

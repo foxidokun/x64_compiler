@@ -42,13 +42,6 @@ static bool dfs_recursion (tree::node_t *node, tree::walk_f pre_exec,  void *pre
 
 static tree::node_t *load_subtree (const char **str);
 
-static bool node_codegen   (tree::node_t *node, void *void_params, bool);
-static bool middle_codegen (tree::node_t *node, void *void_params, bool);
-static bool close_subgraph (tree::node_t *node, void *void_params, bool);
-static const char *get_op_name (tree::op_t op);
-static void format_node (const tree::node_t *node, char *buf, char **var_names, char **func_names, const char **color);
-
-
 // -------------------------------------------------------------------------------------------------
 // PUBLIC SECTION
 // -------------------------------------------------------------------------------------------------
@@ -147,132 +140,34 @@ tree::node_t *tree::copy_subtree (tree::node_t *node)
 
 // -------------------------------------------------------------------------------------------------
 
-int tree::graph_dump (tree_t *tree, const char *reason_fmt, char **var_names, char **func_names, ...)
-{
-    assert (tree       != nullptr && "pointer can't be nullptr");
-    assert (reason_fmt != nullptr && "pointer can't be nullptr");
-
-    va_list args;
-    va_start (args, func_names);
-
-    int res = graph_dump (tree->head_node, reason_fmt, var_names, func_names, args);
-
-    va_end (args);
-    return res;
-}
-
-int tree::graph_dump (tree_t *tree, const char *reason_fmt, ...)
-{
-    assert (tree       != nullptr && "pointer can't be nullptr");
-    assert (reason_fmt != nullptr && "pointer can't be nullptr");
-
-    va_list args;
-    va_start (args, reason_fmt);
-
-    int res = graph_dump (tree->head_node, reason_fmt, args);
-
-    va_end (args);
-    return res;
-}
-
-int tree::graph_dump (node_t *node, const char *reason_fmt, char **var_names, char **func_names, ...)
-{
-    assert (node       != nullptr && "pointer can't be nullptr");
-    assert (reason_fmt != nullptr && "pointer can't be nullptr");
-
-    va_list args;
-    va_start (args, func_names);
-
-    int res = graph_dump (node, reason_fmt, var_names, func_names, args);
-
-    va_end (args);
-    return res;
-}
-
-
-int tree::graph_dump (node_t *node, const char *reason_fmt, ...)
-{
-    assert (node       != nullptr && "pointer can't be nullptr");
-    assert (reason_fmt != nullptr && "pointer can't be nullptr");
-
-    va_list args;
-    va_start (args, reason_fmt);
-
-    int res = graph_dump (node, reason_fmt, args);
-
-    va_end (args);
-    return res;
-}
-
-int tree::graph_dump (node_t *node, const char *reason_fmt, va_list args)
-{
-    return graph_dump (node, reason_fmt, nullptr, nullptr, args);
-}
-
-int tree::graph_dump (node_t *node, const char *reason_fmt, char **var_names, char **func_names, va_list args)
-{
-    assert (node       != nullptr && "pointer can't be nullptr");
-    assert (reason_fmt != nullptr && "pointer can't be nullptr");
-
-
-    static int counter = 0;
-    counter++;
-
-    char filepath[DUMP_FILE_PATH_LEN+1] = "";    
-    sprintf (filepath, DUMP_FILE_PATH_FORMAT, counter);
-
-    FILE *dump_file = fopen (filepath, "w");
-    if (dump_file == nullptr)
-    {
-        log (ERROR, "Failed to open dump file '%s'", filepath);
-        return counter;
-    }
-
-    fprintf (dump_file, PREFIX);
-    
-    dfs_params params = {dump_file, var_names, func_names};
-
-    dfs_exec (node, node_codegen,    &params,
-                    middle_codegen,    &params,
-                    close_subgraph,  &params);
-
-    fprintf (dump_file, "}\n");
-
-    fclose (dump_file);
-
-    char cmd[2*DUMP_FILE_PATH_LEN+20+1] = "";
-    sprintf (cmd, "dot -T png -o %s.png %s", filepath, filepath);
-    if (system (cmd) != 0)
-    {
-        log (ERROR, "Failed to execute '%s'", cmd);
-    }
-
-    #if HTML_LOGS
-        FILE *stream = get_log_stream ();
-
-        fprintf  (stream, "<h2>List dump: ");
-        vfprintf (stream, reason_fmt, args);
-        fprintf  (stream, "</h2>");
-
-        fprintf (stream, "\n\n<img src=\"%s.png\">\n\n", filepath);
-    #else
-        char buf[REASON_LEN] = "";
-        vsprintf (buf, reason_fmt, args);
-        log (INFO, "Dump path: %s.png, reason: %s", filepath, buf);
-    #endif
-
-    fflush (get_log_stream ());
-    return counter;
-}
-
-// -------------------------------------------------------------------------------------------------
-
-void tree::save_tree (tree_t *tree, FILE *stream)
-{
+void tree::save_tree(tree_t *tree, FILE *stream) {
     assert (tree   != nullptr && "invalid pointer");
     assert (stream != nullptr && "invalid pointer");
 
     save_tree (tree->head_node, stream);
+}
+
+void tree::save_tree(node_t *start_node, FILE *stream) {
+    assert (start_node != nullptr && "invalid pointer");
+    assert (stream     != nullptr && "invalid pointer");
+
+    walk_f dump_pre = [](node_t *node, void *param, bool)
+    {
+        FILE *output = (FILE *) param;
+        fprintf (output, "{ %d %d\n", (int) node->type, node->data);
+        return true;
+    };
+
+    walk_f dump_post = [](node_t*, void *param, bool)
+    {
+        FILE *output = (FILE *) param;
+        fprintf (output, "}\n");
+        return true;
+    };
+
+    dfs_exec (start_node, dump_pre,  stream,
+    nullptr,   nullptr,
+    dump_post, stream);
 }
 
 // -------------------------------------------------------------------------------------------------

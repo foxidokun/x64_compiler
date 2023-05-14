@@ -192,17 +192,17 @@ void x64::emit_ret(code_t *self, ir::instruction_t *ir_instruct) {
     assert (self && ir_instruct);
     emit_debug_nop(self);
 
-    instruction_t pop_val_instruct = {.opcode = POP_reg | REG_RBX};
-    emit_instruction(self, &pop_val_instruct);
-
-    instruction_t pop_retaddr_instruct = {.opcode = POP_reg | REG_RAX};
-    emit_instruction(self, &pop_retaddr_instruct);
-
-    instruction_t push_val_instruct = {.opcode = PUSH_reg | REG_RBX};
-    emit_instruction(self, &push_val_instruct);
-
-    instruction_t push_retaddr_instruct = {.opcode = PUSH_reg | REG_RAX};
-    emit_instruction(self, &push_retaddr_instruct);
+//    instruction_t pop_val_instruct = {.opcode = POP_reg | REG_RBX};
+//    emit_instruction(self, &pop_val_instruct);
+//
+//    instruction_t pop_retaddr_instruct = {.opcode = POP_reg | REG_RAX};
+//    emit_instruction(self, &pop_retaddr_instruct);
+//
+//    instruction_t push_val_instruct = {.opcode = PUSH_reg | REG_RBX};
+//    emit_instruction(self, &push_val_instruct);
+//
+//    instruction_t push_retaddr_instruct = {.opcode = PUSH_reg | REG_RAX};
+//    emit_instruction(self, &push_retaddr_instruct);
 
     instruction_t ret_instruct = {.opcode = RET};
     emit_instruction(self, &ret_instruct);

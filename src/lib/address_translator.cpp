@@ -38,6 +38,11 @@ result_t addr_transl_insert(addr_transl_t* self, uint64_t old_addr, uint64_t new
         UNWRAP_ERROR(addr_transl_resize(self));
     }
 
+    log(DEBUG, "Remember translation %d -> %llu", old_addr, new_addr);
+
+    //TODO Тут будут двойные вставки, мб стоит их исключить
+    // Или какой-нибудь #ifdef PARANOID пройтись по массиву и сверить что новый новый = старый новый
+
     self->mappings[self->size].old_addr = old_addr;
     self->mappings[self->size].new_addr = new_addr;
 
@@ -55,7 +60,7 @@ uint64_t addr_transl_translate(addr_transl_t* self, uint64_t old_addr) {
         }
     }
 
-    log(ERROR, "Failed to translate addr %d", old_addr);
+    log(DEBUG, "Failed to translate addr %d", old_addr);
     return ERROR;
 }
 
@@ -76,7 +81,7 @@ result_t addr_transl_remember_old_addr(addr_transl_t* self, uint64_t old_addr) {
 
 result_t addr_transl_insert_with_remembered_addr(addr_transl_t* self, uint64_t new_addr) {
     if (!self->old_addr_is_stored) {
-        log(ERROR, "Trying to insert with remembered addr, but no addr is remembered :(");
+        log(ERROR, "Trying to insert with remembered addr, but no addr is remembered :("); //FIXME чтобы такого не было
         return result_t::ERROR;
     }
 
@@ -91,8 +96,8 @@ result_t addr_transl_insert_with_remembered_addr(addr_transl_t* self, uint64_t n
 //----------------------------------------------------------------------------------------------------------------------
 
 static result_t addr_transl_resize(addr_transl_t *self) {
-    size_t new_capacity = (self->capacity) ? 2*self->capacity : START_CAPACITY;
-    mapping_t *tmp_buf = (mapping_t *) realloc(self->mappings, self->capacity * sizeof (mapping_t));
+    size_t new_capacity = (self->capacity) ? 2 * self->capacity : START_CAPACITY;
+    mapping_t *tmp_buf = (mapping_t *) realloc(self->mappings, new_capacity * sizeof (mapping_t));
 
     if (tmp_buf) {
         self->capacity = new_capacity;

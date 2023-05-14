@@ -2,7 +2,7 @@
 #define X64_TRANSLATOR_X64_H
 
 #include <stdint.h>
-#include "../ir.h"
+#include "../ir/ir.h"
 #include "../lib/file.h"
 #include "../lib/address_translator.h"
 

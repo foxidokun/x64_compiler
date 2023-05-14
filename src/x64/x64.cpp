@@ -9,7 +9,7 @@
 /** TODO Доп функция для первого (0) прохода, чтобы запоминать адреса call'ов. Потом в цикле, если проход первый и адрес есть в call листе, то вставлять доп код
  *              (НЕТ, БУДЕТ НОВЫЙ IR ТИП)
  *     R8 может быть испорчен в stdlib, стоит использовать callee saved
- *     Вернуть IR на массив
+ *     Вернуть IR на массив (необязательно)
  */
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ namespace x64 {
     static void emit_instruction_write      (code_t *self, instruction_t *x64_instruct);
 
     static void resize_if_needed(code_t *self);
-    static void begin_new_pass  (code_t *self);
+    static void start_new_pass  (code_t *self);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -78,21 +78,22 @@ void x64::code_delete(code_t *self) {
 
 x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
     x64::code_t *self = code_new();
-    ir::instruction_t *ir_instruct = ir_code->instructions;
 
     while (self->pass_index < TOTAL_PASS_COUNT) {
-        while (ir_instruct) {
-            result_t res = addr_transl_remember_old_addr(self->addr_transl, ir_instruct->index);
-            if (res == result_t::ERROR) {
-                log(ERROR, "Failed to store old addr in self->addr_transl");
-                return nullptr;
+        for (uint i = 0; i < ir_code->size; ++i) { // FIXME Обратно в нормальный вид, а не цикл по непойми чему лол
+            ir::instruction_t *ir_instruct = ir_code->instructions + i;
+            if (self->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
+                result_t res = addr_transl_remember_old_addr(self->addr_transl, ir_instruct->index);
+                if (res == result_t::ERROR) {
+                    log(ERROR, "Failed to store old addr in self->indexed_label_transl");
+                    return nullptr;
+                }
             }
 
             encode_one_ir_instruction(self, ir_instruct);
-            ir_instruct = ir::next_insruction(ir_instruct);
         }
 
-        begin_new_pass(self);
+        start_new_pass(self);
     }
 
     return self;
@@ -235,7 +236,12 @@ static void x64::resize_if_needed(x64::code_t *self) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-static void x64::begin_new_pass(code_t *self) {
+static void x64::start_new_pass(code_t *self) {
+#ifdef DEBUG_BREAK
+    self->exec_buf_size = 1;
+#else
     self->exec_buf_size = 0;
+#endif
+
     self->pass_index++;
 }
