@@ -52,10 +52,10 @@ const char INS_NAMES[][6] = {
 const char REGS[][10] = {"RAX", "RBX", "RCX", "RDX"};
 
 void print_ir(ir::code_t *code) {
-    for (uint i = 0; i < code->size; ++i) {
-        ir::instruction_t *inst = code->instructions + i;
+    ir::instruction_t *inst = code->instructions;
 
-        printf("%d: %s ", i, INS_NAMES[(int) inst->type]);
+    while (inst) {
+        printf("%d: %s ", inst->index, INS_NAMES[(int) inst->type]);
         if (inst->need_mem_arg) {
             printf("[] ");
         }
@@ -69,5 +69,7 @@ void print_ir(ir::code_t *code) {
         }
 
         printf ("\n");
+
+        inst = ir::next_insruction(inst);
     }
 }

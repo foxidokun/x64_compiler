@@ -78,10 +78,10 @@ void x64::code_delete(code_t *self) {
 
 x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
     x64::code_t *self = code_new();
+    ir::instruction_t *ir_instruct = ir_code->instructions;
 
     while (self->pass_index < TOTAL_PASS_COUNT) {
-        for (uint i = 0; i < ir_code->size; ++i) { // FIXME Обратно в нормальный вид, а не цикл по непойми чему лол
-            ir::instruction_t *ir_instruct = ir_code->instructions + i;
+        while (ir_instruct) {
             if (self->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
                 result_t res = addr_transl_remember_old_addr(self->addr_transl, ir_instruct->index);
                 if (res == result_t::ERROR) {
@@ -91,6 +91,8 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
             }
 
             encode_one_ir_instruction(self, ir_instruct);
+
+            ir_instruct = ir::next_insruction(ir_instruct);
         }
 
         start_new_pass(self);
