@@ -142,9 +142,13 @@ void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
 
     log(INFO, "Emitting lib function...");
 
-    instruction_t pop_arg_instruct = {
-            .opcode = POP_reg | REG_RDI,
-    };
+    if (ir_instruct->type != ir::instruction_type_t::INP && ir_instruct->type != ir::instruction_type_t::HALT) {
+        instruction_t pop_arg_instruct = {
+                .opcode = POP_reg | REG_RDI,
+        };
+
+        emit_instruction(self, &pop_arg_instruct);
+    }
 
     uint64_t lib_func_addr = 0;
     switch (ir_instruct->type) {
@@ -163,19 +167,21 @@ void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
             .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RAX,
             .imm64         = lib_func_addr
     };
+    emit_instruction(self, &mov_addr_instr);
 
+    instruction_t save_r8    = {.require_REX = true, .REX = REX_BYTE_IF_EXTENDED, .opcode = PUSH_reg};
+
+    emit_instruction(self, &save_r8);
     instruction_t call_reg = {
             .require_ModRM = true,
             .opcode = CALL_reg,
             .ModRM = ONLY_REG_MODRM_MODE_BIT | MODRM_ONLY_RM | REG_RAX
     };
-
-    if (ir_instruct->type != ir::instruction_type_t::INP && ir_instruct->type != ir::instruction_type_t::HALT) {
-        emit_instruction(self, &pop_arg_instruct);
-    }
-
-    emit_instruction(self, &mov_addr_instr);
     emit_instruction(self, &call_reg);
+
+    instruction_t restore_r8 = {.require_REX = true, .REX = REX_BYTE_IF_EXTENDED, .opcode = POP_reg};
+    emit_instruction(self, &restore_r8);
+
 
     if (ir_instruct->type == ir::instruction_type_t::INP || ir_instruct->type == ir::instruction_type_t::SQRT) {
         instruction_t push_res_instr = {

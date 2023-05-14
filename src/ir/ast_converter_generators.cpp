@@ -118,6 +118,12 @@ result_t ir::subtree_convert(converter_t *converter, tree::node_t *node, code_t 
 
         case tree::node_type_t::RETURN:
             UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code, true));
+            //FIXME Move to own func этот switch блок
+            EMIT_R(POP, REG_RAX);
+            EMIT_R(POP, REG_RBX);
+            EMIT_R(PUSH, REG_RAX);
+            EMIT_R(PUSH, REG_RBX);
+
             EMIT_NONE(RET);
             break;
 
