@@ -20,7 +20,8 @@ uint64_t x64::stdlib_inp() {
 //----------------------------------------------------------------------------------------------------------------------
 
 void x64::stdlib_out(uint64_t arg) {
-    printf("OUTPUT: %ld.%02ld\n", arg/FIXED_PRECISION_MULTIPLIER, arg%FIXED_PRECISION_MULTIPLIER);
+    int64_t signed_arg = (int64_t) arg;
+    printf("OUTPUT: %ld.%02ld\n", signed_arg/FIXED_PRECISION_MULTIPLIER, signed_arg%FIXED_PRECISION_MULTIPLIER);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

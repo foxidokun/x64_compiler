@@ -58,15 +58,15 @@ namespace x64 {
     // --- --- --- Some opcode consts --- --- ---
     const int EXTENDED_REG_MASK         = 0b1000;       // REX part
     const int LOWER_REG_BITS_MASK       = 0b0111;       // SIB part
-    const int REX_BYTE_IF_EXTENDED      = 0b01000001;   // REX mask if BUF_ADDR_REGISTER > 7
+    const int REX_BYTE_IF_EXTENDED      = 0b01000001;   // REX mask if BUF_ADDR_REGISTER > 7 //TODO переименовать extended на что-нибудь более осознанное
 
     const int IMM_MODRM_MODE_BIT        = 0b10000000;
     const int DOUBLE_REG_MODRM_MODE_BIT = 0b00000100;
     const int SINGLE_REG_MODRM_MODE_BIT = 0b00000000;
     const int ONLY_REG_MODRM_MODE_BIT   = 0b11000000;
 
-    const int MODRM_MUL_REG_BITS        = 0b00100000;
-    const int MODRM_DIV_REG_BITS        = 0b00110000;
+    const int MODRM_MUL_REG_BITS        = 0b00101000;
+    const int MODRM_DIV_REG_BITS        = 0b00111000;
 
     const int MODRM_ONLY_RM             = 0b00010000;
 

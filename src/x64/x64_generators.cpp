@@ -112,13 +112,22 @@ void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instruct) {
     instruction_t pop_op1_instruct = {.opcode = POP_reg | REG_RAX};
     emit_instruction(self, &pop_op1_instruct);
 
+    instruction_t extend_rax_to_rdxrax_instruct = {
+            .require_REX = true,
+            .REX         = REX_BYTE_IF_64_BIT,
+            .opcode      = 0x99
+    };
+    emit_instruction(self, &extend_rax_to_rdxrax_instruct);
+
     if (!is_mul) {
         div_fix_precision_multiplier(self);
     }
 
     uint8_t modrm_reg_bits = (is_mul) ? MODRM_MUL_REG_BITS : MODRM_DIV_REG_BITS;
     instruction_t mult_instruct = {
+            .require_REX   = true,
             .require_ModRM = true,
+            .REX    = REX_BYTE_IF_64_BIT,
             .opcode = DIVMUL_reg,
             .ModRM  = ONLY_REG_MODRM_MODE_BIT | modrm_reg_bits | REG_RBX
     };
@@ -320,7 +329,9 @@ static void x64::mul_fix_precision_multiplier(code_t *self) {
     emit_instruction(self, &load_precision_multiplier);
 
     instruction_t mult_instruct = {
+            .require_REX   = true,
             .require_ModRM = true,
+            .REX    = REX_BYTE_IF_64_BIT,
             .opcode = DIVMUL_reg,
             .ModRM  = ONLY_REG_MODRM_MODE_BIT | MODRM_DIV_REG_BITS | REG_RBX
     };
@@ -336,15 +347,17 @@ static void x64::div_fix_precision_multiplier(code_t *self) {
             .require_imm64 = true,
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RBX,
+            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RCX,
             .imm64         = FIXED_PRECISION_MULTIPLIER
     };
     emit_instruction(self, &load_precision_multiplier);
 
     instruction_t mult_instruct = {
+            .require_REX   = true,
             .require_ModRM = true,
+            .REX    = REX_BYTE_IF_64_BIT,
             .opcode = DIVMUL_reg,
-            .ModRM  = ONLY_REG_MODRM_MODE_BIT | MODRM_MUL_REG_BITS | REG_RBX
+            .ModRM  = ONLY_REG_MODRM_MODE_BIT | MODRM_MUL_REG_BITS | REG_RCX
     };
     emit_instruction(self, &mult_instruct);
 }
