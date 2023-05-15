@@ -148,11 +148,11 @@ static void x64::emit_instruction_calc_offset(code_t *self, instruction_t *x64_i
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define EMIT_OPTIONAL_FIELD(fieldname, type)                                                \
-    if (x64_instruct->require_##fieldname) {                                                \
-        log (INFO, "\t " #fieldname " field: DEC=%d HEX=0x%x", x64_instruct->fieldname)     \
-        *((type *) (self->exec_buf + self->exec_buf_size)) = x64_instruct->fieldname;       \
-        self->exec_buf_size += sizeof(type);                                                \
+#define EMIT_OPTIONAL_FIELD(fieldname, type)                                                                     \
+    if (x64_instruct->require_##fieldname) {                                                                     \
+        log (INFO, "\t " #fieldname " field: DEC=%d HEX=0x%x", x64_instruct->fieldname, x64_instruct->fieldname) \
+        *((type *) (self->exec_buf + self->exec_buf_size)) = x64_instruct->fieldname;                            \
+        self->exec_buf_size += sizeof(type);                                                                     \
     }
 
 static void x64::emit_instruction_write(code_t *self, instruction_t *x64_instruct) {
