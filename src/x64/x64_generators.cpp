@@ -246,7 +246,7 @@ void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct) {
     emit_debug_nop(self);
 
 
-    instruction_t pop_op2_instruct = {.opcode = POP_reg | REG_RBX};
+    instruction_t pop_op2_instruct = {.opcode = POP_reg | REG_RCX};
     emit_instruction(self, &pop_op2_instruct);
 
     instruction_t pop_op1_instruct = {.opcode = POP_reg | REG_RAX};
@@ -257,7 +257,7 @@ void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct) {
             .require_ModRM  = true,
             .REX            = REX_BYTE_IF_64_BIT,
             .opcode         = CMP_reg_reg,
-            .ModRM          = ONLY_REG_MODRM_MODE_BIT | REG_RBX << MODRM_RM_OFFSET | REG_RAX
+            .ModRM          = ONLY_REG_MODRM_MODE_BIT | REG_RCX << MODRM_RM_OFFSET | REG_RAX
     };
     emit_instruction(self, &cmp_instruct);
 
