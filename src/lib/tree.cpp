@@ -22,17 +22,6 @@ struct dfs_params
 };
 
 // -------------------------------------------------------------------------------------------------
-// CONST SECTION
-// -------------------------------------------------------------------------------------------------
-
-const int REASON_LEN   = 50;
-const int MAX_NODE_LEN = 32;
-
-const char PREFIX[] = "digraph G {\nnode [shape=record,style=\"filled\"]\nsplines=spline;\n";
-static const size_t DUMP_FILE_PATH_LEN = 20;
-static const char DUMP_FILE_PATH_FORMAT[] = "dump/%d.grv";
-
-// -------------------------------------------------------------------------------------------------
 // STATIC PROTOTYPES SECTION
 // -------------------------------------------------------------------------------------------------
 
