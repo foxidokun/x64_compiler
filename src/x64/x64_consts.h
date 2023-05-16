@@ -47,12 +47,12 @@ namespace x64 {
         RET          = 0xC3,
 
         // Cond jumps
-        JNAE_imm     = 0x82, // jb
-        JNB_imm      = 0x83, // jae
+        JNAE_imm     = 0x8c, // jl
+        JNB_imm      = 0x8d, // jge
         JE_imm       = 0x84, // je
         JNE_imm      = 0x85, // jne
-        JNA_imm      = 0x86, // jbe
-        JA_imm       = 0x87, // ja
+        JNA_imm      = 0x8e, // jle
+        JA_imm       = 0x8f, // jg
     };
 
     // --- --- --- Some opcode consts --- --- ---

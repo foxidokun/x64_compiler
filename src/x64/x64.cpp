@@ -14,7 +14,7 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define DEBUG_BREAK
+//#define DEBUG_BREAK
 
 const int PAGE_SIZE            = 4096;
 const int EXEC_BUF_THRESHOLD   = 15;  // 15 bytes per x64 instruction

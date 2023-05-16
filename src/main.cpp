@@ -19,7 +19,7 @@ int main() {
 
     ir::code_t *ir_code = ir::from_ast(ast);
 
-//    print_ir(ir_code);
+    print_ir(ir_code);
     x64::code_t *x64_code = x64::translate_from_ir(ir_code);
     execute(x64_code);
 }

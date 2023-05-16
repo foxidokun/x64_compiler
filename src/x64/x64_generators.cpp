@@ -106,7 +106,7 @@ void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instruct) {
     bool is_mul = ir_instruct->type == ir::instruction_type_t::MUL;
     log (INFO, "emitting mul/div, is_mul: %d", is_mul);
 
-    instruction_t pop_op2_instruct = {.opcode = POP_reg | REG_RBX};
+    instruction_t pop_op2_instruct = {.require_REX = true, .REX = REX_BYTE_IF_EXTENDED, .opcode = POP_reg | REG_R12};
     emit_instruction(self, &pop_op2_instruct);
 
     instruction_t pop_op1_instruct = {.opcode = POP_reg | REG_RAX};
@@ -127,9 +127,9 @@ void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instruct) {
     instruction_t mult_instruct = {
             .require_REX   = true,
             .require_ModRM = true,
-            .REX    = REX_BYTE_IF_64_BIT,
+            .REX    = REX_BYTE_IF_64_BIT | REX_BYTE_IF_EXTENDED,
             .opcode = DIVMUL_reg,
-            .ModRM  = ONLY_REG_MODRM_MODE_BIT | modrm_reg_bits | REG_RBX
+            .ModRM  = ONLY_REG_MODRM_MODE_BIT | modrm_reg_bits | REG_R12
     };
     emit_instruction(self, &mult_instruct);
 
@@ -323,7 +323,7 @@ static void x64::mul_fix_precision_multiplier(code_t *self) {
             .require_imm64 = true,
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RBX,
+            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RCX,
             .imm64         = FIXED_PRECISION_MULTIPLIER
     };
     emit_instruction(self, &load_precision_multiplier);
@@ -333,7 +333,7 @@ static void x64::mul_fix_precision_multiplier(code_t *self) {
             .require_ModRM = true,
             .REX    = REX_BYTE_IF_64_BIT,
             .opcode = DIVMUL_reg,
-            .ModRM  = ONLY_REG_MODRM_MODE_BIT | MODRM_DIV_REG_BITS | REG_RBX
+            .ModRM  = ONLY_REG_MODRM_MODE_BIT | MODRM_DIV_REG_BITS | REG_RCX
     };
     emit_instruction(self, &mult_instruct);
 }

@@ -24,7 +24,7 @@ mmaped_file_t mmap_file_or_warn(const char *name) {
                                                         MAP_PRIVATE, fd, 0);
 
     if (mmap_memory == MAP_FAILED) {
-        fprintf (stderr, "Failed to map memory\n");
+        fprintf (stderr, "Failed to map memory on file '%s', reason: %s\n", name, strerror(errno));
         return {.data = nullptr};
     }
 

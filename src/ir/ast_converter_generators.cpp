@@ -477,9 +477,9 @@ static void ir::emit_out(converter_t *converter, code_t *ir_code) {
 static result_t ir::emit_assig(converter_t *converter, uint64_t var_num, code_t *ir_code) {
     assert(converter && ir_code);
 
-    EMIT_R(POP,  REG_RAX);
-    EMIT_R(PUSH, REG_RAX);
-    EMIT_R(PUSH, REG_RAX);
+//    EMIT_R(POP,  REG_RAX);
+//    EMIT_R(PUSH, REG_RAX);
+//    EMIT_R(PUSH, REG_RAX);
     EMIT_NONE(POP);
     UNWRAP_ERROR(get_var_code(converter, var_num, ir_code));
 
