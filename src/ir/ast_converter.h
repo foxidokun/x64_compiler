@@ -6,7 +6,7 @@
 
 namespace ir
 {
-    ir::code_t *from_ast(tree::node_t *node);
+    result_t from_ast(ir::code_t *self, tree::node_t *node);
 }
 
 #endif

@@ -14,13 +14,21 @@ enum REGISTERS {
 
 const int BASE_MEM_REG = REG_RDX;
 
-// TODO Рассписать комменты на асме че как генерируется
-
 // -------------------------------------------------------------------------------------------------
 // Prototypes
 // -------------------------------------------------------------------------------------------------
 
 namespace ir {
+    static result_t convert_op              (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_if              (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_while           (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_func_call       (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_func_def        (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_ret             (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_and             (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_or              (converter_t *converter, tree::node_t *node, code_t *ir_code);
+    static result_t convert_logical_operands(converter_t *converter, tree::node_t *node, code_t *ir_code);
+
     static int convert_func_call_args(converter_t *converter, tree::node_t *node, code_t *ir_code);
     static int convert_func_def_args (converter_t *converter, tree::node_t *node, code_t *ir_code);
 
@@ -48,6 +56,10 @@ namespace ir {
 #define EMIT_M_I(TYPE, IMM)        emit_instruction_wrapper(converter, ir_code, instruction_type_t::TYPE,  true, false, true,    0, IMM)
 #define EMIT_M_R(TYPE, REG)        emit_instruction_wrapper(converter, ir_code, instruction_type_t::TYPE,  true, true,  false, REG,   0)
 #define EMIT_M_R_I(TYPE, REG, IMM) emit_instruction_wrapper(converter, ir_code, instruction_type_t::TYPE,  true, true,  true,  REG, IMM)
+
+#define GET_LABEL(label, index)                                                         \
+    uint label     = get_label_index(converter);                                        \
+    uint64_t index = addr_transl_translate(converter->indexed_label_transl, label);     \
 
 // -------------------------------------------------------------------------------------------------
 // Protected
@@ -117,14 +129,7 @@ result_t ir::subtree_convert(converter_t *converter, tree::node_t *node, code_t 
             break;
 
         case tree::node_type_t::RETURN:
-            UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code, true));
-            //FIXME Move to own func этот switch блок
-            EMIT_R(POP, REG_RAX);
-            EMIT_R(POP, REG_RBX);
-            EMIT_R(PUSH, REG_RAX);
-            EMIT_R(PUSH, REG_RBX);
-
-            EMIT_NONE(RET);
+            UNWRAP_ERROR(convert_ret(converter, node, ir_code));
             break;
 
         case tree::node_type_t::ELSE:
@@ -156,15 +161,12 @@ result_t ir::subtree_convert(converter_t *converter, tree::node_t *node, code_t 
     EMIT_PUSH_TRUE_FALSE (opcode)
 
 
-//FIXME Слишком большая функция
 result_t ir::convert_op(converter_t *converter, tree::node_t *node, code_t *ir_code) {
     assert (converter != nullptr && "invalid pointer");
     assert (node      != nullptr && "invalid pointer");
     assert (ir_code   != nullptr && "invalid pointer");
 
     assert (node->type == tree::node_type_t::OP);
-
-    int label_index    = -1;
 
     switch ((tree::op_t) node->data)
     {
@@ -202,9 +204,9 @@ result_t ir::convert_op(converter_t *converter, tree::node_t *node, code_t *ir_c
             EMIT_NONE(INP);
             break;
 
-        case tree::op_t::EQ:  EMIT_COMPARATOR (JE); break;
-        case tree::op_t::GT:  EMIT_COMPARATOR (JA); break;
-        case tree::op_t::LT:  EMIT_COMPARATOR (JB); break;
+        case tree::op_t::EQ:  EMIT_COMPARATOR (JE);  break;
+        case tree::op_t::GT:  EMIT_COMPARATOR (JA);  break;
+        case tree::op_t::LT:  EMIT_COMPARATOR (JB);  break;
         case tree::op_t::GE:  EMIT_COMPARATOR (JAE); break;
         case tree::op_t::LE:  EMIT_COMPARATOR (JBE); break;
         case tree::op_t::NEQ: EMIT_COMPARATOR (JNE); break;
@@ -216,23 +218,11 @@ result_t ir::convert_op(converter_t *converter, tree::node_t *node, code_t *ir_c
             break;
 
         case tree::op_t::AND:
-            UNWRAP_ERROR(subtree_convert(converter, node->left, ir_code));
-            EMIT_I(PUSH, 0);
-            EMIT_PUSH_TRUE_FALSE(JNE);
-            UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code));
-            EMIT_I(PUSH, 0);
-            EMIT_PUSH_TRUE_FALSE(JNE);
-            EMIT_PUSH_TRUE_FALSE(JE);
+            UNWRAP_ERROR(convert_and(converter, node, ir_code));
             break;
 
         case tree::op_t::OR:
-            UNWRAP_ERROR(subtree_convert(converter, node->left, ir_code));
-            EMIT_I(PUSH, 0);
-            EMIT_PUSH_TRUE_FALSE(JNE);
-            UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code));
-            EMIT_I(PUSH, 0);
-            EMIT_PUSH_TRUE_FALSE (JNE);
-            EMIT_NONE(ADD);
+            UNWRAP_ERROR(convert_or(converter, node, ir_code));
             break;
 
         default:
@@ -243,7 +233,6 @@ result_t ir::convert_op(converter_t *converter, tree::node_t *node, code_t *ir_c
 }
 
 #undef EMIT_BINARY_OP
-#undef EMIT_PUSH_TRUE_FALSE
 #undef EMIT_COMPARATOR
 
 // -------------------------------------------------------------------------------------------------
@@ -257,23 +246,24 @@ result_t ir::convert_if(converter_t *converter, tree::node_t *node, code_t *ir_c
     UNWRAP_ERROR(subtree_convert(converter, node->left, ir_code));
     EMIT_I(PUSH, 0);
 
-    uint end_label = get_label_index(converter);
-    uint64_t end_ir_indx = addr_transl_translate(converter->indexed_label_transl, end_label);
+    // IF end label
+    GET_LABEL(end_label, end_ir_indx);
 
-    if (node->right->left != nullptr) {
-        uint else_label = get_label_index(converter);
-        uint64_t else_ir_indx = addr_transl_translate(converter->indexed_label_transl, else_label);
 
-        EMIT_I(JE, else_ir_indx);
-        UNWRAP_ERROR(subtree_convert(converter, node->right->left, ir_code));
-        EMIT_I(JMP, end_ir_indx);
-        register_numeric_label(converter, else_label);
-        UNWRAP_ERROR(subtree_convert(converter, node->right->right, ir_code));
+    if (node->right->left != nullptr) {      // Check if there is else branch
+        GET_LABEL(else_label, else_ir_indx); // Pointer to else block
+
+        EMIT_I(JE, else_ir_indx);                                                    // IF cond == 0 jmp to else
+        UNWRAP_ERROR(subtree_convert(converter, node->right->left, ir_code));  //  ... if branch ...
+        EMIT_I(JMP, end_ir_indx);                                                    // JMP out of IF
+        register_numeric_label(converter, else_label);                     // else_label:
+        UNWRAP_ERROR(subtree_convert(converter, node->right->right, ir_code)); //  ... else branch ...
     } else {
-        EMIT_I(JE, end_ir_indx);
-        UNWRAP_ERROR(subtree_convert(converter, node->right->right, ir_code));
+        EMIT_I(JE, end_ir_indx);                                                     // IF cond == 0 jmp to end
+        UNWRAP_ERROR(subtree_convert(converter, node->right->right, ir_code)); //  ... if branch ...
     }
 
+    // end_label:
     register_numeric_label(converter, end_label);
 
     return result_t::OK;
@@ -282,27 +272,22 @@ result_t ir::convert_if(converter_t *converter, tree::node_t *node, code_t *ir_c
 // -------------------------------------------------------------------------------------------------
 
 result_t ir::convert_while(converter_t *converter, tree::node_t *node, code_t *ir_code) {
-    assert (converter != nullptr && "invalid pointer");
-    assert (node      != nullptr && "invalid pointer");
-    assert (ir_code   != nullptr && "invalid pointer");
+    assert (converter && node && ir_code && "Invalid pointers");
     assert (node->type == tree::node_type_t::WHILE && "Invalid call");
 
-    uint64_t while_beg_label = get_label_index(converter);
-    uint64_t while_end_label = get_label_index(converter);
-    uint64_t while_beg_ir_indx = addr_transl_translate(converter->indexed_label_transl, while_beg_label);
-    uint64_t while_end_ir_indx = addr_transl_translate(converter->indexed_label_transl, while_end_label);
+    GET_LABEL(while_beg_label, while_beg_ir_indx);
+    GET_LABEL(while_end_label, while_end_ir_indx);
 
-    register_numeric_label(converter, while_beg_label);
+    register_numeric_label(converter, while_beg_label);         // while_beg:
+    UNWRAP_ERROR(subtree_convert(converter, node->left, ir_code));  // ... condition ...
 
-    UNWRAP_ERROR(subtree_convert(converter, node->left, ir_code));
+    EMIT_I(PUSH, 0);                                                      //
+    EMIT_I(JE, while_end_ir_indx);                                        // if cond == 0 jump to while_end
 
-    EMIT_I(PUSH, 0);
-    EMIT_I(JE, while_end_ir_indx);
+    UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code)); // ... while body ...
 
-    UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code));
-
-    EMIT_I(JMP, while_beg_ir_indx);
-    register_numeric_label(converter, while_end_label);
+    EMIT_I(JMP, while_beg_ir_indx);                                       // jmp to while_beg
+    register_numeric_label(converter, while_end_label);         // while_end:
 
     return result_t::OK;
 }
@@ -310,25 +295,22 @@ result_t ir::convert_while(converter_t *converter, tree::node_t *node, code_t *i
 // -------------------------------------------------------------------------------------------------
 
 result_t ir::convert_func_def(converter_t *converter, tree::node_t *node, code_t *ir_code) {
-    assert (converter != nullptr && "invalid pointer");
-    assert (node      != nullptr && "invalid pointer");
-    assert (ir_code   != nullptr && "invalid pointer");
+    assert (converter && node && ir_code && "Invalid pointers");
     assert (node->type == tree::node_type_t::FUNC_DEF && "Invalid call");
 
     converter->global_frame_size_store = converter->frame_size;
     converter->frame_size = 0;
     converter->in_func = true;
 
-    uint64_t func_def_end_label = get_label_index(converter);
-    uint64_t func_def_ir_indx = addr_transl_translate(converter->indexed_label_transl, func_def_end_label);
-    EMIT_I (JMP, func_def_ir_indx);
+    GET_LABEL(func_def_end_label, func_def_end_ir_indx);
 
-    register_function_label(converter, node->data);
+    EMIT_I (JMP, func_def_end_ir_indx);                                     // jmp func_def_end
+    register_function_label(converter, node->data);               // func:
 
-    convert_func_def_args(converter, node->left, ir_code);
-    UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code));
+    convert_func_def_args(converter, node->left, ir_code);            // ... load func args ...
+    UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code));   // ... func body ...
 
-    register_numeric_label(converter, func_def_end_label);
+    register_numeric_label(converter, func_def_end_label);        // func_def_end:
 
     converter->in_func = false;
     clear_local_vars (converter);
@@ -340,28 +322,40 @@ result_t ir::convert_func_def(converter_t *converter, tree::node_t *node, code_t
 // -------------------------------------------------------------------------------------------------
 
 result_t ir::convert_func_call(converter_t *converter, tree::node_t *node, code_t *ir_code) {
-    assert (converter != nullptr && "invalid pointer");
-    assert (node      != nullptr && "invalid pointer");
-    assert (ir_code   != nullptr && "invalid pointer");
+    assert (converter && node && ir_code && "Invalid pointers");
     assert (node->type == tree::node_type_t::FUNC_CALL && "Invalid call");
 
-    int arg_counter = convert_func_call_args(converter, node->right, ir_code);
+    int arg_counter = convert_func_call_args(converter, node->right, ir_code);   // ... load func args into stack ...
 
-    EMIT_R(PUSH, REG_RDX);
-    EMIT_I(PUSH, converter->frame_size);
-    EMIT_NONE(ADD);
-    EMIT_R(POP, REG_RDX);
+    EMIT_R(PUSH, REG_RDX);                                                             //
+    EMIT_I(PUSH, converter->frame_size);                                               //
+    EMIT_NONE(ADD);                                                                    // * Increment frame size *
+    EMIT_R(POP, REG_RDX);                                                              // add rbx, %frame_size
 
     for (int i = arg_counter - 1; i >= 0; --i) {
-        EMIT_M_R_I(POP, REG_RDX, i);
+        EMIT_M_R_I(POP, REG_RDX, i);                                                   // ... load func args into frame ...
     }
 
-    EMIT_I(CALL, addr_transl_translate(converter->func_label_transl, node->data));
+    EMIT_I(CALL, addr_transl_translate(converter->func_label_transl, node->data)); // call func%d
 
-    EMIT_R(PUSH, REG_RDX);
-    EMIT_I(PUSH, converter->frame_size);
-    EMIT_NONE(SUB);
-    EMIT_R(POP, REG_RDX);
+    EMIT_R(PUSH, REG_RDX);                                                              //
+    EMIT_I(PUSH, converter->frame_size);                                                //
+    EMIT_NONE(SUB);                                                                     // * Decrement frame size *
+    EMIT_R(POP, REG_RDX);                                                               // sub rbx, %frame_size
+
+    return result_t::OK;
+}
+
+result_t ir::convert_ret(converter_t *converter, tree::node_t *node, code_t *ir_code) {
+    assert(converter && node && ir_code);
+
+    UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code, true)); // ... ret arg ...
+    EMIT_R(POP, REG_RAX);   //
+    EMIT_R(POP, REG_RBX);   // * Exchange ret addr and func res
+    EMIT_R(PUSH, REG_RAX);  // pop rax, rbx
+    EMIT_R(PUSH, REG_RBX);  // push rax, rbx
+
+    EMIT_NONE(RET);         // ret
 
     return result_t::OK;
 }
@@ -442,23 +436,20 @@ static int ir::convert_func_def_args(converter_t *converter, tree::node_t *node,
 // -------------------------------------------------------------------------------------------------
 
 static void ir::emit_push_true_false(converter_t *converter, instruction_type_t jmp_type, code_t *ir_code) {
-    uint push_one_label = get_label_index(converter);
-    uint end_label      = get_label_index(converter);
-    uint64_t push_one_ir_indx = addr_transl_translate(converter->indexed_label_transl, push_one_label);
-    uint64_t end_ir_indx      = addr_transl_translate(converter->indexed_label_transl, end_label);
+    GET_LABEL(push_one_label, push_one_ir_indx);
+    GET_LABEL(end_label, end_ir_indx);
 
-    // JMP_TYPE push_one
     emit_instruction_wrapper(converter, ir_code, jmp_type, false, false, true,
                                                                                         0, push_one_ir_indx);
+                                                                    // Jxx push_one
+    EMIT_I(PUSH, 0);                                                // push 0
+    EMIT_I(JMP, end_ir_indx);                                       // jmp end
 
-    EMIT_I(PUSH, 0);
-    EMIT_I(JMP, end_ir_indx);
+    register_numeric_label(converter, push_one_label);    // push_one:
 
-    register_numeric_label(converter, push_one_label);
+    EMIT_I(PUSH, 1);                                                // push 1
 
-    EMIT_I(PUSH, 1);
-
-    register_numeric_label(converter, end_label);
+    register_numeric_label(converter, end_label);         // end:
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -466,6 +457,7 @@ static void ir::emit_push_true_false(converter_t *converter, instruction_type_t 
 static void ir::emit_out(converter_t *converter, code_t *ir_code) {
     assert(converter && ir_code);
 
+    // Duplicate output
     EMIT_R(POP,  REG_RAX);
     EMIT_R(PUSH, REG_RAX);
     EMIT_R(PUSH, REG_RAX);
@@ -477,14 +469,43 @@ static void ir::emit_out(converter_t *converter, code_t *ir_code) {
 static result_t ir::emit_assig(converter_t *converter, uint64_t var_num, code_t *ir_code) {
     assert(converter && ir_code);
 
-//    EMIT_R(POP,  REG_RAX);
-//    EMIT_R(PUSH, REG_RAX);
-//    EMIT_R(PUSH, REG_RAX);
     EMIT_NONE(POP);
     UNWRAP_ERROR(get_var_code(converter, var_num, ir_code));
 
     return result_t::OK;
 }
+
+// -------------------------------------------------------------------------------------------------
+
+static result_t ir::convert_logical_operands(converter_t *converter, tree::node_t *node, code_t *ir_code) {
+    UNWRAP_ERROR(subtree_convert(converter, node->left, ir_code));  // ... compute left operand ...
+    EMIT_I(PUSH, 0);                                                      // * boolify lhs *
+    EMIT_PUSH_TRUE_FALSE(JNE);                                            // push (lhs != 0)
+    UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code)); // ... compute right operand ...
+    EMIT_I(PUSH, 0);                                                      // * boolify rhs *
+    EMIT_PUSH_TRUE_FALSE(JNE);                                            // push (rhs != 0)
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+result_t ir::convert_or(converter_t *converter, tree::node_t *node, code_t *ir_code) {
+    convert_logical_operands(converter, node, ir_code);
+    EMIT_NONE(ADD); // If at least one != 0, it will be != 0
+
+    return result_t::OK;
+}
+
+// -------------------------------------------------------------------------------------------------
+
+result_t ir::convert_and(converter_t *converter, tree::node_t *node, code_t *ir_code) {
+    convert_logical_operands(converter, node, ir_code);
+    EMIT_PUSH_TRUE_FALSE(JE); // If both are != 0, it will be != 0
+
+    return result_t::OK;
+}
+
+#undef EMIT_PUSH_TRUE_FALSE
 
 // -------------------------------------------------------------------------------------------------
 

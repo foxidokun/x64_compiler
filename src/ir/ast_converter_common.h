@@ -30,8 +30,7 @@ namespace ir {
     };
 
 // -------------------------------------------------------------------------------------------------
-// From ast_converter.cpp
-    result_t subtree_convert(converter_t *converter, tree::node_t * node, code_t * ir_code, bool result_used = true);
+    // From ast_converter.cpp
     void emit_instruction(converter_t *converter, code_t *ir_code, instruction_t *ir_instruct);
     uint get_label_index(converter_t *converter);
     void register_numeric_label (converter_t *converter, uint64_t label_num);
@@ -39,14 +38,10 @@ namespace ir {
     void update_last_instruction_args(converter_t *converter, code_t *ir_code, instruction_t *instruction);
 
     // From ast_converter_generators.cpp
+    result_t subtree_convert(converter_t *converter, tree::node_t * node, code_t * ir_code, bool result_used = true);
     void emit_code_begin(converter_t *converter, code_t *ir_code);
     void emit_code_end  (converter_t *converter, code_t *ir_code);
 
-    result_t convert_op       (converter_t *converter, tree::node_t *node, code_t *ir_code);
-    result_t convert_if       (converter_t *converter, tree::node_t *node, code_t *ir_code);
-    result_t convert_while    (converter_t *converter, tree::node_t *node, code_t *ir_code);
-    result_t convert_func_call(converter_t *converter, tree::node_t *node, code_t *ir_code);
-    result_t convert_func_def (converter_t *converter, tree::node_t *node, code_t *ir_code);
 }
 
 #endif //X64_TRANSLATOR_AST_CONVERTER_COMMON_H

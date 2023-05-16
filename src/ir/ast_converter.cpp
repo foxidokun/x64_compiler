@@ -8,9 +8,12 @@
 // Consts
 // -------------------------------------------------------------------------------------------------
 
-const int TOTAL_PASS_COUNT            = 2;
-const int PASS_INDEX_TO_WRITE         = 1;
-const int PASS_INDEX_TO_CALC_OFFSETS  = 0;
+enum passes {
+    PASS_INDEX_TO_CALC_OFFSETS =  0,
+    PASS_INDEX_TO_WRITE,
+    /// Total number of compile iterations
+    TOTAL_PASS_COUNT
+};
 
 const int DEFAULT_VARS_CAPACITY       = 16;
 
@@ -36,29 +39,27 @@ namespace ir {
 // Public
 // -------------------------------------------------------------------------------------------------
 
-ir::code_t *ir::from_ast(tree::node_t *node) {
-    code_t *ir_code = code_new();
-    if (!ir_code) {return nullptr;}
+result_t ir::from_ast(ir::code_t *self, tree::node_t *node) {
     converter_t *converter = converter_new();
-    if (!converter) {return nullptr;}
+    if (!converter) {return result_t::ERROR;}
 
     bool need_another_pass = true;
     while (need_another_pass) {
-        emit_code_begin(converter, ir_code);
+        emit_code_begin(converter, self);
 
-        result_t res = subtree_convert(converter, node, ir_code, false);
-        if (res == result_t::ERROR) { return nullptr; }
+        result_t res = subtree_convert(converter, node, self, false);
+        UNWRAP_ERROR(res);
 
-        emit_code_end(converter, ir_code);
+        emit_code_end(converter, self);
         need_another_pass = start_new_pass(converter);
     }
 
     converter_delete(converter);
-    return ir_code;
+    return result_t::OK;
 }
 
 // -------------------------------------------------------------------------------------------------
-// Protected
+// Protected methods
 // -------------------------------------------------------------------------------------------------
 
 void ir::emit_instruction(converter_t *converter, code_t *ir_code, instruction_t *ir_instruct) {
@@ -74,6 +75,41 @@ void ir::emit_instruction(converter_t *converter, code_t *ir_code, instruction_t
         default:
             assert(0 && "Unexpected pass_index");
             break;
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+uint ir::get_label_index(converter_t *converter) {
+    assert (converter != nullptr && "invalid pointer");
+    return converter->cur_label_index++;
+}
+
+// -------------------------------------------------------------------------------------------------
+
+void ir::register_numeric_label(converter_t *converter, uint64_t label_num) {
+    if (converter->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
+        addr_transl_insert(converter->indexed_label_transl, label_num, converter->current_instruction_index);
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+void ir::register_function_label(converter_t *converter, uint64_t func_num) {
+    if (converter->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
+        addr_transl_insert(converter->func_label_transl, func_num, converter->current_instruction_index);
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+void ir::update_last_instruction_args(converter_t *converter, code_t *ir_code, instruction_t *instruction) {
+    if (converter->pass_index == PASS_INDEX_TO_WRITE) {
+        ir_code->last_instruction->need_reg_arg = instruction->need_reg_arg;
+        ir_code->last_instruction->need_imm_arg = instruction->need_imm_arg;
+        ir_code->last_instruction->need_mem_arg = instruction->need_mem_arg;
+        ir_code->last_instruction->reg_num      = instruction->reg_num;
+        ir_code->last_instruction->imm_arg      = instruction->imm_arg;
     }
 }
 
@@ -163,39 +199,4 @@ static bool ir::start_new_pass(converter_t *converter) {
     }
 
     return false;
-}
-
-// -------------------------------------------------------------------------------------------------
-
-uint ir::get_label_index(converter_t *converter) {
-    assert (converter != nullptr && "invalid pointer");
-    return converter->cur_label_index++;
-}
-
-// -------------------------------------------------------------------------------------------------
-
-void ir::register_numeric_label(converter_t *converter, uint64_t label_num) {
-    if (converter->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
-        addr_transl_insert(converter->indexed_label_transl, label_num, converter->current_instruction_index);
-    }
-}
-
-// -------------------------------------------------------------------------------------------------
-
-void ir::register_function_label(converter_t *converter, uint64_t func_num) {
-    if (converter->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
-        addr_transl_insert(converter->func_label_transl, func_num, converter->current_instruction_index);
-    }
-}
-
-// -------------------------------------------------------------------------------------------------
-
-void ir::update_last_instruction_args(converter_t *converter, code_t *ir_code, instruction_t *instruction) {
-    if (converter->pass_index == PASS_INDEX_TO_WRITE) {
-        ir_code->last_instruction->need_reg_arg = instruction->need_reg_arg;
-        ir_code->last_instruction->need_imm_arg = instruction->need_imm_arg;
-        ir_code->last_instruction->need_mem_arg = instruction->need_mem_arg;
-        ir_code->last_instruction->reg_num      = instruction->reg_num;
-        ir_code->last_instruction->imm_arg      = instruction->imm_arg;
-    }
 }
