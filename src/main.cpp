@@ -4,7 +4,6 @@
 #include "lib/tree.h"
 #include "lib/file.h"
 
-
 const char BIN_NAME[] = "data/test.bin";
 
 void print_ir(ir::code_t *code);
@@ -20,7 +19,8 @@ int main() {
     ir::code_t *ir_code = ir::from_ast(ast);
 
     print_ir(ir_code);
-    x64::code_t *x64_code = x64::translate_from_ir(ir_code);
+    x64::code_t *x64_code = x64::code_new();
+    x64::translate_from_ir(x64_code, ir_code);
     execute(x64_code);
 }
 
@@ -37,7 +37,7 @@ const char INS_NAMES[][6] = {
         "DEC",
         "SIN",
         "COS",
-        "RET_none",
+        "RET",
         "HALT",
         "INP",
         "OUT",
