@@ -9,19 +9,20 @@ const char BIN_NAME[] = "data/test.bin";
 void print_ir(ir::code_t *code);
 
 int main() {
-//    tree::node_t *ast = nullptr;
-//    const mmaped_file_t src = mmap_file_or_warn("data/quad.asm");
-//
-//    const char *tree_section = (char *) src.data;
-//    while (*tree_section != '{') tree_section++;
-//    ast = tree::load_tree (tree_section);
-//
-//    ir::code_t *ir_code = ir::from_ast(ast);
-//
+    tree::node_t *ast = nullptr;
+    const mmaped_file_t src = mmap_file_or_warn("data/quad.asm");
+
+    const char *tree_section = (char *) src.data;
+    while (*tree_section != '{') tree_section++;
+    ast = tree::load_tree (tree_section);
+
+    ir::code_t *ir_code = ir::code_new();
+    ir::from_ast(ir_code, ast);
+
 //    print_ir(ir_code);
-//    x64::code_t *x64_code = x64::code_new();
-//    x64::translate_from_ir(x64_code, ir_code);
-//    execute(x64_code);
+    x64::code_t *x64_code = x64::code_new();
+    x64::translate_from_ir(x64_code, ir_code);
+    execute(x64_code);
 }
 
 

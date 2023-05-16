@@ -8,7 +8,7 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define DEBUG_BREAK
+//#define DEBUG_BREAK
 
 const int PAGE_SIZE                   = 4096;  // Standart memory page size
 const int EXEC_BUF_THRESHOLD          = 15;    // maximum 15 bytes per x64 instruction
@@ -110,6 +110,8 @@ result_t x64::translate_from_ir(x64::code_t *self, ir::code_t *ir_code) {
 
         start_new_pass(self);
     }
+
+    return result_t::OK;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
