@@ -3,13 +3,21 @@
 
 namespace x64 {
     const char REG_NAMES[][4] = {"rax",  // 0b000
-                                "rcx",   // 0b001
-                                "rdx",   // 0b010
-                                "rbx",   // 0b011
-                                "rsp",   // 0b100
-                                "rbp",   // 0b101
-                                "rsi",   // 0b110
-                                "rdi",   // 0b111
+                                 "rcx",  // 0b001
+                                 "rdx",  // 0b010
+                                 "rbx",  // 0b011
+                                 "rsp",  // 0b100
+                                 "rbp",  // 0b101
+                                 "rsi",  // 0b110
+                                 "rdi",  // 0b111
+                                 "r8",   // 0b1000
+                                 "r9",   // 0b1001
+                                 "r10",  // 0b1010
+                                 "r11",  // 0b1011
+                                 "r12",  // 0b1100
+                                 "r13",  // 0b1101
+                                 "r14",  // 0b1110
+                                 "r15",  // 0b1111
     };
 
     enum REGS {
@@ -43,22 +51,26 @@ namespace x64 {
         MOV_reg_imm  = 0x48,
         CALL_reg     = 0xFF,
         CMP_reg_reg  = 0x39,
-        CONDJMP_imm_prefix = 0x0F,
-        RET          = 0xC3,
+        RET_none     = 0xC3,
+        CQO_none     = 0x99,
 
-        // Cond jumps
-        JNAE_imm     = 0x8c, // jl
-        JNB_imm      = 0x8d, // jge
-        JE_imm       = 0x84, // je
-        JNE_imm      = 0x85, // jne
-        JNA_imm      = 0x8e, // jle
-        JA_imm       = 0x8f, // jg
+        // Cond jumps prefix
+        CONDJMP_imm_prefix = 0x0F,
+
+        // Cond jumps opcodes
+        JNGE_imm = 0x8c, // jl
+        JNL_imm  = 0x8d, // jge
+        JE_imm   = 0x84, // je
+        JNE_imm  = 0x85, // jne
+        JNG_imm  = 0x8e, // jle
+        JG_imm   = 0x8f, // jg
     };
 
     // --- --- --- Some opcode consts --- --- ---
-    const int EXTENDED_REG_MASK         = 0b1000;       // REX part
-    const int LOWER_REG_BITS_MASK       = 0b0111;       // SIB part
-    const int REX_BYTE_IF_EXTENDED      = 0b01000001;   // REX mask if BUF_ADDR_REGISTER > 7 //TODO переименовать extended на что-нибудь более осознанное
+    const int EXTENDED_REG_MASK         = 0b1000;       // REX part of register
+    const int LOWER_REG_BITS_MASK       = 0b0111;       // SIB part of register
+    const int REX_BYTE_IF_NUM_REGS      = 0b01000001;   // REX mask if using numered register in instruction
+    const int REX_BYTE_IF_64_BIT        = 0b01001000;
 
     const int IMM_MODRM_MODE_BIT        = 0b10000000;
     const int DOUBLE_REG_MODRM_MODE_BIT = 0b00000100;
@@ -67,8 +79,6 @@ namespace x64 {
 
     const int MODRM_MUL_REG_BITS        = 0b00101000;
     const int MODRM_DIV_REG_BITS        = 0b00111000;
-
-    const int MODRM_ONLY_RM             = 0b00010000;
 
     const int PUSH_MOD_REG_BITS         = 0b00110000;
     const int POP_MOD_REG_BITS          = 0b00000000;
@@ -80,8 +90,6 @@ namespace x64 {
 
     const int SIB_INDEX_OFFSET          = 3;
     const int SIB_BASE_OFFSET           = 0;
-
-    const int REX_BYTE_IF_64_BIT        = 0b01001000;
 
     const int DEBUG_SYSCALL_BYTE        = 0xCC;
 }

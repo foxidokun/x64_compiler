@@ -31,7 +31,7 @@ void addr_transl_delete(addr_transl_t *self);
 result_t addr_transl_insert(addr_transl_t* self, uint64_t old_addr, uint64_t new_addr);
 
 result_t addr_transl_remember_old_addr(addr_transl_t* self, uint64_t old_addr);
-result_t addr_transl_insert_with_remembered_addr(addr_transl_t* self, uint64_t new_addr);
+result_t addr_transl_insert_if_remembered_addr(addr_transl_t* self, uint64_t new_addr);
 
 uint64_t addr_transl_translate(addr_transl_t* self, uint64_t old_addr);
 

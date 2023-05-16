@@ -37,7 +37,7 @@ const char INS_NAMES[][6] = {
         "DEC",
         "SIN",
         "COS",
-        "RET",
+        "RET_none",
         "HALT",
         "INP",
         "OUT",

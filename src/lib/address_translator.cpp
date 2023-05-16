@@ -79,10 +79,9 @@ result_t addr_transl_remember_old_addr(addr_transl_t* self, uint64_t old_addr) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-result_t addr_transl_insert_with_remembered_addr(addr_transl_t* self, uint64_t new_addr) {
+result_t addr_transl_insert_if_remembered_addr(addr_transl_t* self, uint64_t new_addr) {
     if (!self->old_addr_is_stored) {
-        log(ERROR, "Trying to insert with remembered addr, but no addr is remembered :("); //FIXME чтобы такого не было
-        return result_t::ERROR;
+        return result_t::OK;
     }
 
     UNWRAP_ERROR (addr_transl_insert(self, self->stored_old_addr, new_addr) )

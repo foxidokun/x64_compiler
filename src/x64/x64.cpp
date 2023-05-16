@@ -6,28 +6,26 @@
 #include "x64_consts.h"
 #include "x64.h"
 
-/** TODO Доп функция для первого (0) прохода, чтобы запоминать адреса call'ов. Потом в цикле, если проход первый и адрес есть в call листе, то вставлять доп код
- *              (НЕТ, БУДЕТ НОВЫЙ IR ТИП)
- *     R8 может быть испорчен в stdlib, стоит использовать callee saved
- *     Вернуть IR на массив (необязательно)
- */
-
 //----------------------------------------------------------------------------------------------------------------------
 
-//#define DEBUG_BREAK
+#define DEBUG_BREAK
 
-const int PAGE_SIZE            = 4096;
-const int EXEC_BUF_THRESHOLD   = 15;  // 15 bytes per x64 instruction
+const int PAGE_SIZE                   = 4096;  // Standart memory page size
+const int EXEC_BUF_THRESHOLD          = 15;    // maximum 15 bytes per x64 instruction
 
-const int TOTAL_PASS_COUNT            = 2;
-const int PASS_INDEX_TO_WRITE         = 1;
-const int PASS_INDEX_TO_CALC_OFFSETS  = 0;
 
+enum passes {
+    PASS_INDEX_TO_CALC_OFFSETS =  0,
+    PASS_INDEX_TO_WRITE,
+    /// Total number of compile iterations
+    TOTAL_PASS_COUNT
+};
 
 //----------------------------------------------------------------------------------------------------------------------
 // Prototypes
 //----------------------------------------------------------------------------------------------------------------------
 
+// Internal methods
 namespace x64 {
     static void encode_one_ir_instruction(code_t *self, ir::instruction_t *ir_instruct);
 
@@ -46,10 +44,23 @@ x64::code_t *x64::code_new() {
     code_t *self = (code_t *) calloc(1, sizeof(code_t));
     if (!self) { return nullptr;}
 
+    result_t ctor_res = code_ctor(self);
+    if (ctor_res == result_t::ERROR) {
+        free(self);
+        return nullptr;
+    }
+
+    return self;
+}
+
+result_t x64::code_ctor(code_t *self) {
     self->exec_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_EXEC | PROT_WRITE,
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    if (self->exec_buf == MAP_FAILED) { return result_t::ERROR;}
+
     self->ram_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_READ | PROT_WRITE,
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    if (self->ram_buf == MAP_FAILED) { return result_t::ERROR;}
 
     self->exec_buf_capacity = PAGE_SIZE;
     self->ram_buf_capacity  = PAGE_SIZE;
@@ -62,33 +73,34 @@ x64::code_t *x64::code_new() {
     self->addr_transl = addr_transl_new();
     self->pass_index = 0;
 
-    return self;
+    return result_t::OK;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void x64::code_delete(code_t *self) {
+    if (self) {
+        code_dtor(self);
+    }
+    free(self);
+}
+
+void x64::code_dtor(code_t *self) {
     munmap(self->exec_buf, self->exec_buf_capacity);
     munmap(self->ram_buf, self->ram_buf_capacity);
     addr_transl_delete(self->addr_transl);
-    free(self);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
-    x64::code_t *self = code_new();
-
+result_t x64::translate_from_ir(x64::code_t *self, ir::code_t *ir_code) {
     while (self->pass_index < TOTAL_PASS_COUNT) {
         ir::instruction_t *ir_instruct = ir_code->instructions;
 
         while (ir_instruct) {
             if (self->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
                 result_t res = addr_transl_remember_old_addr(self->addr_transl, ir_instruct->index);
-                if (res == result_t::ERROR) {
-                    log(ERROR, "Failed to store old addr in self->indexed_label_transl");
-                    return nullptr;
-                }
+                UNWRAP_ERROR(res);
             }
 
             encode_one_ir_instruction(self, ir_instruct);
@@ -98,8 +110,6 @@ x64::code_t *x64::translate_from_ir(ir::code_t *ir_code) {
 
         start_new_pass(self);
     }
-
-    return self;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -141,18 +151,18 @@ static void x64::emit_instruction_calc_offset(code_t *self, instruction_t *x64_i
     if (x64_instruct->require_imm32)  { command_size += sizeof(uint32_t); }
     if (x64_instruct->require_imm64)  { command_size += sizeof(uint64_t); }
 
-    addr_transl_insert_with_remembered_addr(self->addr_transl, (uint64_t) self->exec_buf + self->exec_buf_size);
+    addr_transl_insert_if_remembered_addr(self->addr_transl, (uint64_t) self->exec_buf + self->exec_buf_size);
 
     self->exec_buf_size += command_size;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define EMIT_OPTIONAL_FIELD(fieldname, type)                                                                     \
-    if (x64_instruct->require_##fieldname) {                                                                     \
-        log (INFO, "\t " #fieldname " field: DEC=%d HEX=0x%x", x64_instruct->fieldname, x64_instruct->fieldname) \
-        *((type *) (self->exec_buf + self->exec_buf_size)) = x64_instruct->fieldname;                            \
-        self->exec_buf_size += sizeof(type);                                                                     \
+#define EMIT_OPTIONAL_FIELD(fieldname, type)                                                                            \
+    if (x64_instruct->require_##fieldname) {                                                                            \
+        log (INFO, "\t " #fieldname " field: DEC=%d HEX=0x%x", x64_instruct->fieldname, x64_instruct->fieldname);       \
+        *((type *) (self->exec_buf + self->exec_buf_size)) = x64_instruct->fieldname;                                   \
+        self->exec_buf_size += sizeof(type);                                                                            \
     }
 
 static void x64::emit_instruction_write(code_t *self, instruction_t *x64_instruct) {
@@ -220,6 +230,10 @@ static void x64::encode_one_ir_instruction(code_t *self, ir::instruction_t *ir_i
             emit_cond_jmp(self, ir_instruct);
             break;
 
+        case ir::instruction_type_t::INC:
+        case ir::instruction_type_t::DEC:
+        case ir::instruction_type_t::SIN:
+        case ir::instruction_type_t::COS:
         default:
             assert(0 && "Unsupported instruction");
             break;
@@ -241,7 +255,7 @@ static void x64::resize_if_needed(x64::code_t *self) {
 
 static void x64::start_new_pass(code_t *self) {
 #ifdef DEBUG_BREAK
-    self->exec_buf_size = 1;
+    self->exec_buf_size = 1; // Save debug syscall byte
 #else
     self->exec_buf_size = 0;
 #endif
