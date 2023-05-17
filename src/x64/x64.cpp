@@ -8,11 +8,8 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//#define DEBUG_BREAK
-
 const int PAGE_SIZE                   = 4096;  // Standart memory page size
 const int EXEC_BUF_THRESHOLD          = 15;    // maximum 15 bytes per x64 instruction
-
 
 enum passes {
     PASS_INDEX_TO_CALC_OFFSETS =  0,
@@ -40,11 +37,11 @@ namespace x64 {
 // Public
 //----------------------------------------------------------------------------------------------------------------------
 
-x64::code_t *x64::code_new() {
+x64::code_t *x64::code_new(output_t output) {
     code_t *self = (code_t *) calloc(1, sizeof(code_t));
     if (!self) { return nullptr;}
 
-    result_t ctor_res = code_ctor(self);
+    result_t ctor_res = code_ctor(self, output);
     if (ctor_res == result_t::ERROR) {
         free(self);
         return nullptr;
@@ -53,7 +50,7 @@ x64::code_t *x64::code_new() {
     return self;
 }
 
-result_t x64::code_ctor(code_t *self) {
+result_t x64::code_ctor(code_t *self, output_t output) {
     self->exec_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_EXEC | PROT_WRITE,
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (self->exec_buf == MAP_FAILED) { return result_t::ERROR;}
@@ -65,13 +62,9 @@ result_t x64::code_ctor(code_t *self) {
     self->exec_buf_capacity = PAGE_SIZE;
     self->ram_buf_capacity  = PAGE_SIZE;
 
-#ifdef DEBUG_BREAK
-    self->exec_buf[0] = DEBUG_SYSCALL_BYTE; // INT 03 DEBUG BYTE
-    self->exec_buf_size += 1;
-#endif
-
     self->addr_transl = addr_transl_new();
     self->pass_index = 0;
+    self->output_type = output;
 
     return result_t::OK;
 }
@@ -96,6 +89,8 @@ void x64::code_dtor(code_t *self) {
 result_t x64::translate_from_ir(x64::code_t *self, ir::code_t *ir_code) {
     while (self->pass_index < TOTAL_PASS_COUNT) {
         ir::instruction_t *ir_instruct = ir_code->instructions;
+
+        emit_code_preparation(self);
 
         while (ir_instruct) {
             if (self->pass_index == PASS_INDEX_TO_CALC_OFFSETS) {
@@ -256,11 +251,6 @@ static void x64::resize_if_needed(x64::code_t *self) {
 //----------------------------------------------------------------------------------------------------------------------
 
 static void x64::start_new_pass(code_t *self) {
-#ifdef DEBUG_BREAK
-    self->exec_buf_size = 1; // Save debug syscall byte
-#else
     self->exec_buf_size = 0;
-#endif
-
     self->pass_index++;
 }

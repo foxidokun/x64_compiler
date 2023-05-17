@@ -2,10 +2,13 @@
 #include "x64_common.h"
 #include "x64_stdlib.h"
 #include "x64_generators.h"
+#include "x64_elf.h"
 
 //----------------------------------------------------------------------------------------------------------------------
 
-const int BUF_ADDR_REGISTER    = x64::REG_R8;  // r8
+#define DEBUG_BREAK
+
+const int RAM_ADDR_REG    = x64::REG_R8;  // r8
 
 //----------------------------------------------------------------------------------------------------------------------
 // Static Prototypes
@@ -150,6 +153,7 @@ void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instruct) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
+// TODO Другие адреса для Binary type ==> мб две константные структуры с адресами или что-то такое
 void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
     assert(self && ir_instruct);
     emit_debug_nop(self);
@@ -209,13 +213,39 @@ void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void x64::emit_ret(code_t *self, ir::instruction_t *ir_instruct) {
-    assert (self && ir_instruct);
+void x64::emit_ret(code_t *self) {
+    assert (self);
     emit_debug_nop(self);
 
     // ret
     instruction_t ret_instruct = {.opcode = RET_none};
     emit_instruction(self, &ret_instruct);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void x64::emit_code_preparation(code_t *self) {
+    assert(self);
+    assert(self->exec_buf_size == 0);
+
+#ifdef DEBUG_BREAK
+    self->exec_buf[0] = DEBUG_SYSCALL_BYTE;
+    self->exec_buf_size++;
+#endif
+
+    uint64_t ram_addr = (self->output_type == output_t::JIT) ? (uint64_t) self->ram_buf : BIN_RAM_ADDR ;
+
+    // mov r8, %ram_addr
+    instruction_t mov_addr_instr = {
+            .require_REX   = true,
+            .require_ModRM = true,
+            .require_imm64 = true,
+            .REX           = REX_BYTE_IF_64_BIT | REX_BYTE_IF_NUM_REGS,
+            .opcode        = MOV_reg_imm,
+            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | (RAM_ADDR_REG & LOWER_REG_BITS_MASK),
+            .imm64         = ram_addr
+    };
+    emit_instruction(self, &mov_addr_instr);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -289,7 +319,7 @@ void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct) {
 
 static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::instruction_t *ir_instruct) {
     // If base addr register is `r9-15` reg
-    if (BUF_ADDR_REGISTER & EXTENDED_REG_MASK) {
+    if (RAM_ADDR_REG & EXTENDED_REG_MASK) {
         x64_instruct->REX = REX_BYTE_IF_NUM_REGS;
         x64_instruct->require_REX = true;
     }
@@ -306,7 +336,7 @@ static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::inst
         x64_instruct->ModRM |= DOUBLE_REG_MODRM_MODE_BIT;
 
         x64_instruct->require_SIB = true;
-        x64_instruct->SIB |= (BUF_ADDR_REGISTER & LOWER_REG_BITS_MASK) ;
+        x64_instruct->SIB |= (RAM_ADDR_REG & LOWER_REG_BITS_MASK) ;
         assert (ir_instruct->reg_num < 8 && "unsupported reg");
         x64_instruct->SIB |= ir_instruct->reg_num << SIB_INDEX_OFFSET;
     } else {

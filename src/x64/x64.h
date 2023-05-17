@@ -8,6 +8,11 @@
 
 
 namespace x64 {
+    enum class output_t {
+        JIT,
+        BINARY
+    };
+
     struct code_t {
         uint8_t *exec_buf;
         size_t exec_buf_capacity;
@@ -18,12 +23,14 @@ namespace x64 {
 
         addr_transl_t *addr_transl;
         uint pass_index;
+
+        output_t output_type;
     };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-    result_t code_ctor(code_t *self);
-    code_t  *code_new ();
+    result_t code_ctor(code_t *self, output_t output);
+    code_t  *code_new(output_t output);
     void code_dtor(code_t *self);
     void code_delete(code_t *self);
 
