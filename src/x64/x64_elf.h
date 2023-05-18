@@ -24,7 +24,7 @@ namespace x64 {
 
     const int RAMSIZE = 4096;
 
-    const char STDLIB_FILENAME[] = "./data/stdlib.out";
+    const char STDLIB_FILENAME[] = "./src/asm_stdlib/stdlib.out";
 
     result_t save(code_t *self, const char *filename);
 }
