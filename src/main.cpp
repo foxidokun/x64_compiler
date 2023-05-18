@@ -5,13 +5,16 @@
 #include "lib/file.h"
 #include "x64/x64_elf.h"
 
-const char OUTPUT_BIN[] = "/tmp/test.bin";
-const char AST_INPUT[]  = "data/input.asm";
+result_t load_and_compile(const char *ast_filename, const char *output_filename);
 
-result_t load_and_compile();
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        log(ERROR, "Invalid number of parameters: expected 2");
+        fprintf(stderr, "Usage: x64_compiler <input ast file> <output binary file>");
+    }
 
-int main() {
-    result_t res = load_and_compile();
+
+    result_t res = load_and_compile(argv[1], argv[2]);
 
     if (res == result_t::OK) {
         return 0;
@@ -20,8 +23,8 @@ int main() {
     log(ERROR, "Program failed: see logs");
 }
 
-result_t load_and_compile() {
-    const mmaped_file_t src = mmap_file_or_warn(AST_INPUT);
+result_t load_and_compile(const char *ast_filename, const char *output_filename) {
+    const mmaped_file_t src = mmap_file_or_warn(ast_filename);
     UNWRAP_NULLPTR( src.data );
 
     const char *tree_section = (char *) src.data;
@@ -36,7 +39,7 @@ result_t load_and_compile() {
     UNWRAP_ERROR (x64::translate_from_ir(x64_code, ir_code));
     ir::code_delete(ir_code);
 
-    UNWRAP_ERROR (x64::save(x64_code, OUTPUT_BIN));
+    UNWRAP_ERROR (x64::save(x64_code, output_filename));
     x64::code_delete(x64_code);
 
     return result_t::OK;

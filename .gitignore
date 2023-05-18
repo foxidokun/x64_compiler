@@ -4,3 +4,7 @@ asm
 x64_translator
 data
 /bin/
+build
+*.o
+*.bin
+dump
