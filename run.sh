@@ -23,6 +23,6 @@ mkdir -p dump # for graphic dumps from frontend / middleend
 
 ./bin/front               $1                      /tmp/$filename.ast
 ./bin/middle              /tmp/$filename.ast      /tmp/$filename.opt.ast
-./build/x64_compiler      /tmp/$filename.opt.ast  ./examples/$filename.bin
+./build/x64_compiler      /tmp/$filename.opt.ast  $2
 
-chmod +x ./examples/$filename.bin
+chmod +x $2
