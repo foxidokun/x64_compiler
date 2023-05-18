@@ -3,3 +3,4 @@ cmake-build-debug
 asm
 x64_translator
 data
+/bin/

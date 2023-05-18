@@ -161,6 +161,7 @@ void tree::save_tree(node_t *start_node, FILE *stream) {
 
 tree::tree_t tree::load_tree(const char *str)
 {
+    while (*str != '{') str++;
     return { .head_node = load_subtree (&str) };
 }
 
