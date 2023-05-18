@@ -264,9 +264,9 @@ void x64::emit_code_preparation(code_t *self) {
             .require_REX   = true,
             .require_ModRM = true,
             .require_imm32 = true,
-            .REX           = 0x49,
-            .opcode        = 0xc7,
-            .ModRM         = 0xc0, // FIXME
+            .REX           = REX_BYTE_IF_NUM_REGS | REX_BYTE_IF_64_BIT,
+            .opcode        = MOV_reg_imm64,
+            .ModRM         = ONLY_REG_MODRM_MODE_BIT,
             .imm32         = ram_addr
     };
     emit_instruction(self, &mov_addr_instr);

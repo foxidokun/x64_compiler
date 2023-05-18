@@ -40,19 +40,20 @@ namespace x64 {
     };
 
     enum x64_OPCODES {
-        PUSH_reg     = 0x50,
-        PUSH_imm     = 0x68,
-        PUSH_mem     = 0xFF,
-        POP_reg      = 0x58,
-        POP_mem      = 0x8F,
-        ADD_mem_reg  = 0x01,
-        SUB_mem_reg  = 0x29,
-        DIVMUL_reg   = 0xF7,
-        MOV_reg_imm  = 0x48,
-        CALL_reg     = 0xFF,
-        CMP_reg_reg  = 0x39,
-        RET_none     = 0xC3,
-        CQO_none     = 0x99,
+        PUSH_reg      = 0x50,
+        PUSH_imm      = 0x68,
+        PUSH_mem      = 0xFF,
+        POP_reg       = 0x58,
+        POP_mem       = 0x8F,
+        ADD_mem_reg   = 0x01,
+        SUB_mem_reg   = 0x29,
+        DIVMUL_reg    = 0xF7,
+        MOV_reg_imm   = 0x48,
+        MOV_reg_imm64 = 0xC7,
+        CALL_reg      = 0xFF,
+        CMP_reg_reg   = 0x39,
+        RET_none      = 0xC3,
+        CQO_none      = 0x99,
 
         // Cond jumps prefix
         CONDJMP_imm_prefix = 0x0F,
