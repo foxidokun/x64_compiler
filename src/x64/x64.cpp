@@ -56,9 +56,11 @@ result_t x64::code_ctor(code_t *self, output_t output) {
                                                                     MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (self->exec_buf == MAP_FAILED) { return result_t::ERROR;}
 
-    self->ram_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_READ | PROT_WRITE,
-                                                                    MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    if (self->ram_buf == MAP_FAILED) { return result_t::ERROR;}
+    if (output == output_t::JIT) {
+        self->ram_buf = (uint8_t *) mmap(nullptr, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                                         MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+        if (self->ram_buf == MAP_FAILED) { return result_t::ERROR; }
+    }
 
     self->exec_buf_capacity = PAGE_SIZE;
     self->ram_buf_capacity  = PAGE_SIZE;
