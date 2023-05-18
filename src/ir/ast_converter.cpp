@@ -39,7 +39,7 @@ namespace ir {
 // Public
 // -------------------------------------------------------------------------------------------------
 
-result_t ir::from_ast(ir::code_t *self, tree::node_t *node) {
+result_t ir::from_ast(ir::code_t *self, const tree::tree_t *tree) {
     converter_t *converter = converter_new();
     if (!converter) {return result_t::ERROR;}
 
@@ -47,7 +47,7 @@ result_t ir::from_ast(ir::code_t *self, tree::node_t *node) {
     while (need_another_pass) {
         emit_code_begin(converter, self);
 
-        result_t res = subtree_convert(converter, node, self, false);
+        result_t res = subtree_convert(converter, tree->head_node, self, false);
         UNWRAP_ERROR(res);
 
         emit_code_end(converter, self);

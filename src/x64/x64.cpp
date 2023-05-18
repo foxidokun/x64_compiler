@@ -4,6 +4,7 @@
 #include "x64_common.h"
 #include "x64_generators.h"
 #include "x64_consts.h"
+#include "x64_elf.h"
 #include "x64.h"
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -148,7 +149,9 @@ static void x64::emit_instruction_calc_offset(code_t *self, instruction_t *x64_i
     if (x64_instruct->require_imm32)  { command_size += sizeof(uint32_t); }
     if (x64_instruct->require_imm64)  { command_size += sizeof(uint64_t); }
 
-    addr_transl_insert_if_remembered_addr(self->addr_transl, (uint64_t) self->exec_buf + self->exec_buf_size);
+    uint64_t base_addr = (self->output_type == output_t::JIT) ? (uint64_t) self->exec_buf : x64::CODE_BASE_ADDR;
+
+    addr_transl_insert_if_remembered_addr(self->addr_transl,  base_addr + self->exec_buf_size);
 
     self->exec_buf_size += command_size;
 }
@@ -215,7 +218,7 @@ static void x64::encode_one_ir_instruction(code_t *self, ir::instruction_t *ir_i
             break;
 
         case ir::instruction_type_t::RET:
-            emit_ret(self, ir_instruct);
+            emit_ret(self);
             break;
 
         case ir::instruction_type_t::JE:
@@ -251,6 +254,9 @@ static void x64::resize_if_needed(x64::code_t *self) {
 //----------------------------------------------------------------------------------------------------------------------
 
 static void x64::start_new_pass(code_t *self) {
-    self->exec_buf_size = 0;
+    if (self->pass_index + 1 < TOTAL_PASS_COUNT) {
+        self->exec_buf_size = 0;
+    }
+
     self->pass_index++;
 }

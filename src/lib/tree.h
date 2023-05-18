@@ -88,7 +88,7 @@ namespace tree
 
     void    save_tree (tree_t *tree, FILE *stream);
     void    save_tree (node_t *tree, FILE *stream);
-    node_t *load_tree (              const char *content);
+    tree_t  load_tree (const char *content);
 
     tree::node_t *new_node ();
     tree::node_t *new_node (node_type_t type, int  data);

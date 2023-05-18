@@ -39,6 +39,18 @@ void mmap_close (mmaped_file_t file) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
+FILE *open_file_or_warn (const char *name, const char *modes) {
+    FILE *file = fopen(name, modes);
+    if (file) {
+        return file;
+    }
+
+    fprintf (stderr, "Failed to open file '%s', reason: %s\n", name, strerror(errno));
+    return nullptr;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 size_t get_file_size (int fd)
 {
     assert (fd > 0 && "Invalid file descr");

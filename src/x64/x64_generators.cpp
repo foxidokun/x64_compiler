@@ -6,7 +6,7 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define DEBUG_BREAK
+//#define DEBUG_BREAK
 
 const int RAM_ADDR_REG    = x64::REG_R8;  // r8
 
@@ -154,6 +154,28 @@ void x64::emit_mull_or_div(x64::code_t *self, ir::instruction_t *ir_instruct) {
 //----------------------------------------------------------------------------------------------------------------------
 
 // TODO Другие адреса для Binary type ==> мб две константные структуры с адресами или что-то такое
+
+struct stdlib_addrs {
+    uint64_t inp;
+    uint64_t out;
+    uint64_t sqrt;
+    uint64_t halt;
+};
+
+const stdlib_addrs JIT_ADDRS = {
+        .inp = (uint64_t) x64::stdlib_inp,
+        .out = (uint64_t) x64::stdlib_out,
+        .sqrt = (uint64_t) x64::stdlib_sqrt,
+        .halt = (uint64_t) x64::stdlib_halt
+};
+
+const stdlib_addrs BINARY_ADDRS = {
+        .inp  = x64::STDLIB_BASE_ADDR + (int) x64::STDLIB_BINARY_OFFSETS::INPUT,
+        .out  = x64::STDLIB_BASE_ADDR + (int) x64::STDLIB_BINARY_OFFSETS::OUTPUT,
+        .sqrt = x64::STDLIB_BASE_ADDR + (int) x64::STDLIB_BINARY_OFFSETS::SQRT,
+        .halt = x64::STDLIB_BASE_ADDR + (int) x64::STDLIB_BINARY_OFFSETS::EXIT,
+};
+
 void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
     assert(self && ir_instruct);
     emit_debug_nop(self);
@@ -166,13 +188,15 @@ void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
         emit_instruction(self, &pop_arg_instruct);
     }
 
+    const stdlib_addrs *stdlib_addrs = (self->output_type == output_t::JIT) ? &JIT_ADDRS : &BINARY_ADDRS;
+
     // Determine std function address
     uint64_t lib_func_addr = 0;
     switch (ir_instruct->type) {
-        case ir::instruction_type_t::INP:  lib_func_addr = (uint64_t) stdlib_inp;  log(INFO, "\tfunc: INP"); break;
-        case ir::instruction_type_t::OUT:  lib_func_addr = (uint64_t) stdlib_out;  log(INFO, "\tfunc: OUT"); break;
-        case ir::instruction_type_t::SQRT: lib_func_addr = (uint64_t) stdlib_sqrt; log(INFO, "\tfunc: SQR"); break;
-        case ir::instruction_type_t::HALT: lib_func_addr = (uint64_t) stdlib_halt; log(INFO, "\tfunc: HLT"); break;
+        case ir::instruction_type_t::INP:  lib_func_addr = stdlib_addrs->inp;  log(INFO, "\tfunc: INP"); break;
+        case ir::instruction_type_t::OUT:  lib_func_addr = stdlib_addrs->out;  log(INFO, "\tfunc: OUT"); break;
+        case ir::instruction_type_t::SQRT: lib_func_addr = stdlib_addrs->sqrt; log(INFO, "\tfunc: SQR"); break;
+        case ir::instruction_type_t::HALT: lib_func_addr = stdlib_addrs->halt; log(INFO, "\tfunc: HLT"); break;
     }
 
     // mov rax, %addr
@@ -239,11 +263,11 @@ void x64::emit_code_preparation(code_t *self) {
     instruction_t mov_addr_instr = {
             .require_REX   = true,
             .require_ModRM = true,
-            .require_imm64 = true,
-            .REX           = REX_BYTE_IF_64_BIT | REX_BYTE_IF_NUM_REGS,
-            .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | (RAM_ADDR_REG & LOWER_REG_BITS_MASK),
-            .imm64         = ram_addr
+            .require_imm32 = true,
+            .REX           = 0x49,
+            .opcode        = 0xc7,
+            .ModRM         = 0xc0, // FIXME
+            .imm32         = ram_addr
     };
     emit_instruction(self, &mov_addr_instr);
 }
@@ -301,7 +325,9 @@ void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct) {
     emit_instruction(self, &cmp_instruct);
 
     // Calc relative addr
-    const uint32_t cur_addr = (uint32_t) ((uint64_t) self->exec_buf + self->exec_buf_size) + 6;
+    uint64_t base_addr = (self->output_type == output_t::JIT) ? (uint64_t) self->exec_buf : x64::CODE_BASE_ADDR;
+
+    const uint64_t cur_addr = (base_addr + self->exec_buf_size) + 6;
     const uint32_t rel_pos  = (uint32_t) (addr_transl_translate(self->addr_transl, ir_instruct->imm_arg)-cur_addr);
 
     // Jxx %rel_addr

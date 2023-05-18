@@ -5,36 +5,33 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 
-uint64_t x64::stdlib_inp() {
-    printf("INPUT: ");
+extern "C" int64_t input_asm();
 
-    const int SAFE_ALIGNMENT = 32; // scanf requires alignment to 16 bytes, but out program can't provide it
-    alignas(SAFE_ALIGNMENT) uint64_t res = 0;
-
-    scanf("%ld", &res);
-    printf("\n");
-
-    return res * FIXED_PRECISION_MULTIPLIER;
+int64_t x64::stdlib_inp() {
+    return input_asm();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void x64::stdlib_out(uint64_t arg) {
-    int64_t signed_arg = (int64_t) arg;
-    printf("OUTPUT: %ld.%02ld\n", signed_arg/FIXED_PRECISION_MULTIPLIER, signed_arg%FIXED_PRECISION_MULTIPLIER);
+extern "C" void output_asm(int64_t);
+
+void x64::stdlib_out(int64_t arg) {
+    output_asm(arg);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+extern "C" uint64_t sqrt_asm(uint64_t sqrt);
 
 uint64_t x64::stdlib_sqrt(uint64_t arg) {
-    double d_arg = (double) arg *  FIXED_PRECISION_MULTIPLIER;
-    alignas(64) uint64_t res = (uint64_t) sqrt(d_arg);
-    return res;
+    return sqrt_asm(arg);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+extern "C" [[noreturn]] void exit_asm();
 
 [[noreturn]]
 void x64::stdlib_halt() {
-    abort();
+    exit_asm();
 }

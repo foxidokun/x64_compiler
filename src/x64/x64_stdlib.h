@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 namespace x64 {
-    void     stdlib_out (uint64_t arg);
-    uint64_t stdlib_inp ();
+    void     stdlib_out (int64_t arg);
+    int64_t stdlib_inp ();
     uint64_t stdlib_sqrt(uint64_t arg);
     [[noreturn]] void stdlib_halt();
 }

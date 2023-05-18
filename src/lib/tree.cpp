@@ -35,15 +35,13 @@ static tree::node_t *load_subtree (const char **str);
 // PUBLIC SECTION
 // -------------------------------------------------------------------------------------------------
 
-void tree::ctor (tree_t *tree)
-{
+void tree::ctor (tree_t *tree) {
     assert (tree != nullptr && "invalid pointer");
 
     tree->head_node = nullptr;
 }
 
-void tree::dtor (tree_t *tree)
-{
+void tree::dtor (tree_t *tree) {
     assert (tree != nullptr && "invalid pointer");
 
     del_node (tree->head_node);
@@ -161,9 +159,9 @@ void tree::save_tree(node_t *start_node, FILE *stream) {
 
 // -------------------------------------------------------------------------------------------------
 
-tree::node_t *tree::load_tree (const char *str)
+tree::tree_t tree::load_tree(const char *str)
 {
-    return load_subtree (&str);
+    return { .head_node = load_subtree (&str) };
 }
 
 // -------------------------------------------------------------------------------------------------
