@@ -3,8 +3,9 @@ cmake-build-debug
 asm
 x64_translator
 data
-/bin/
+bin/*
 build
 *.o
 *.bin
 dump
+!bin/.gitkeep
