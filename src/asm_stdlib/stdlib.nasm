@@ -77,16 +77,16 @@ output_asm:
         pxor    xmm0, xmm0
         mov  rax, 2951479051793528259
         neg     rdi
-        movaps   [rsp+64], xmm0
+        movups   [rsp+64], xmm0
         cmovs   rdi, rbx
         mov     BYTE  [rsp+80], 10
         mov     BYTE  [rsp+77], 46
         mov     rdx, rdi
-        movaps   [rsp+16], xmm0
+        movups   [rsp+16], xmm0
         shr     rdx, 2
-        movaps   [rsp+32], xmm0
+        movups   [rsp+32], xmm0
         mul     rdx
-        movaps   [rsp+48], xmm0
+        movups   [rsp+48], xmm0
         mov     rsi, rdx
         shr     rsi, 2
         lea     rax, [rsi+rsi*4]
