@@ -9,6 +9,7 @@ enum class result_t {
 };
 
 #define UNWRAP_ERROR(code) { if ((code) == result_t::ERROR) { return result_t::ERROR; } }
+#define UNWRAP_NULLPTR(ptr) { if ((ptr) == nullptr) { return result_t::ERROR; } }
 
 #define todo_assert(condition, message) {                               \
     if (condition) {                                                    \

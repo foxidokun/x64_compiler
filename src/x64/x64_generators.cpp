@@ -257,7 +257,7 @@ void x64::emit_code_preparation(code_t *self) {
     self->exec_buf_size++;
 #endif
 
-    uint64_t ram_addr = (self->output_type == output_t::JIT) ? (uint64_t) self->ram_buf : BIN_RAM_ADDR ;
+    uint64_t ram_addr = (self->output_type == output_t::JIT) ? (uint64_t) self->ram_buf : RAM_BASE_ADDR;
 
     // mov r8, %ram_addr
     instruction_t mov_addr_instr = {

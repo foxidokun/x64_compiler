@@ -5,8 +5,6 @@ global sqrt_asm
 
 section .text
 
-     db 'HELLFPMI'
-
 input_asm:
         sub     rsp, 88
         mov     edx, 7
@@ -166,5 +164,3 @@ sqrt_asm:
         cvttsd2si  rdi, xmm1
         imul rax, rdi, 10
         ret
-
-     db 'HELLFPMI'

@@ -18,7 +18,13 @@ namespace x64 {
         SQRT   = 0x1FB
     };
 
-    const uint64_t BIN_RAM_ADDR = 0x404000;
+    const int STDLIB_SIZE = 526;
+    const int STDLIB_FILE_POS = 4096;
+    const int CODE_FILE_POS   = 8192;
+
+    const int RAMSIZE = 4096;
+
+    const char STDLIB_FILENAME[] = "./data/stdlib.out";
 
     result_t save(code_t *self, const char *filename);
 }
