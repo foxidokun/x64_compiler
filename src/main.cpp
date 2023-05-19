@@ -11,6 +11,7 @@ int main(int argc, char* argv[]) {
     if (argc != 3) {
         log(ERROR, "Invalid number of parameters: expected 2");
         fprintf(stderr, "Usage: x64_compiler <input ast file> <output binary file>");
+        return ERROR;
     }
 
 
