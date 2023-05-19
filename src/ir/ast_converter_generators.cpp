@@ -49,6 +49,9 @@ namespace ir {
 // Macros
 // -------------------------------------------------------------------------------------------------
 
+// M -- Inderect addressing
+// R -- Register argument
+// I -- Immediate argument
 #define EMIT_NONE(TYPE)            emit_instruction_wrapper(converter, ir_code, instruction_type_t::TYPE, false, false, false,   0,   0)
 #define EMIT_I(TYPE, IMM)          emit_instruction_wrapper(converter, ir_code, instruction_type_t::TYPE, false, false, true,    0, IMM)
 #define EMIT_R(TYPE, REG)          emit_instruction_wrapper(converter, ir_code, instruction_type_t::TYPE, false, true,  false, REG,   0)
