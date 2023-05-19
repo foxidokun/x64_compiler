@@ -233,6 +233,7 @@ static void x64::encode_one_ir_instruction(code_t *self, ir::instruction_t *ir_i
             break;
 
         case ir::instruction_type_t::FUNC_BEGIN:
+            addr_transl_forger_old_addr(self->addr_transl);
             break; // We don't need such information
             
         case ir::instruction_type_t::INC:

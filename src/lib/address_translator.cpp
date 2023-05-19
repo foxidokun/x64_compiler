@@ -79,6 +79,18 @@ result_t addr_transl_remember_old_addr(addr_transl_t* self, uint64_t old_addr) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
+result_t addr_transl_forger_old_addr(addr_transl_t* self) {
+    if (!self->old_addr_is_stored) {
+        log(ERROR, "Trying to forget old addr, but struct isn't holding one...");
+        return result_t::ERROR;
+    }
+
+    self->old_addr_is_stored = false;
+    return result_t::OK;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 result_t addr_transl_insert_if_remembered_addr(addr_transl_t* self, uint64_t new_addr) {
     if (!self->old_addr_is_stored) {
         return result_t::OK;
