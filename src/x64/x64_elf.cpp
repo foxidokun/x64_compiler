@@ -39,8 +39,8 @@ const Elf64_Ehdr ELF_HEADER = {
 };
 
 const Elf64_Phdr SYSTEM_PHEADER = {
-        .p_type   = 1          , /* [PT_LOAD] */
-        .p_flags  = 0x4        , /* PF_R */
+        .p_type   = PT_LOAD    , /* [PT_LOAD] */
+        .p_flags  = PF_R       , /* read */
         .p_offset = 0          , /* (bytes into file) */
         .p_vaddr  = 0x400000   , /* (virtual addr at runtime) */
         .p_paddr  = 0x400000   , /* (physical addr at runtime) */
@@ -50,25 +50,28 @@ const Elf64_Phdr SYSTEM_PHEADER = {
 };
 
 const Elf64_Phdr CODE_PHEADER_TEMPLATE = {
-        .p_type   = 1          , /* [PT_LOAD] */
-        .p_flags  = 0x5        , /* PF_R | PF_X */
-        .p_offset = x64::CODE_FILE_POS, /* (bytes into file) */
+        .p_type   = PT_LOAD,             /* [PT_LOAD] */
+        .p_flags  = PF_R | PF_X,         /* PF_R | PF_X */
+        .p_offset = x64::CODE_FILE_POS,  /* (bytes into file) */
         .p_vaddr  = x64::CODE_BASE_ADDR, /* (virtual addr at runtime) */
         .p_paddr  = x64::CODE_BASE_ADDR, /* (physical addr at runtime) */
-        .p_filesz = 0          , /* (bytes in file) */              // This field will be updated later, it is just struct template
-        .p_memsz  = 0          , /* (bytes in mem at runtime) */    // This field will be updated later, it is just struct template
-        .p_align  = 4096       , /* (min mem alignment in bytes) */
+
+        // This fields will be updated later, it is just struct template
+        .p_filesz = 0,                   /* (bytes in file) */
+        .p_memsz  = 0,                   /* (bytes in mem at runtime) */
+
+        .p_align  = 4096, /* (min mem alignment in bytes) */
 };
 
 const Elf64_Phdr STDLIB_PHEADER = {
         .p_type   = PT_LOAD,
         .p_flags  = PF_R | PF_X,
-        .p_offset = x64::STDLIB_FILE_POS,
+        .p_offset = x64::STDLIB_FILE_POS,  /* (bytes into file) */
         .p_vaddr  = x64::STDLIB_BASE_ADDR, /* (virtual addr at runtime) */
         .p_paddr  = x64::STDLIB_BASE_ADDR, /* (physical addr at runtime) */
-        .p_filesz = x64::STDLIB_SIZE, /* (bytes in file) */
-        .p_memsz  = x64::STDLIB_SIZE, /* (bytes in mem at runtime) */
-        .p_align  = 4096       , /* (min mem alignment in bytes) */
+        .p_filesz = x64::STDLIB_SIZE,      /* (bytes in file) */
+        .p_memsz  = x64::STDLIB_SIZE,      /* (bytes in mem at runtime) */
+        .p_align  = 4096,                  /* (min mem alignment in bytes) */
 };
 
 const Elf64_Phdr BSS_PHEADER = {
