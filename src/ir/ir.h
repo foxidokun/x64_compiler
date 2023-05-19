@@ -6,7 +6,7 @@
 
 namespace ir {
     enum class instruction_type_t {
-        PUSH = 0, // TODO remove 0
+        PUSH = 0,
         POP,
         ADD,
         SUB,
