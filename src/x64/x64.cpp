@@ -232,6 +232,9 @@ static void x64::encode_one_ir_instruction(code_t *self, ir::instruction_t *ir_i
             emit_cond_jmp(self, ir_instruct);
             break;
 
+        case ir::instruction_type_t::FUNC_BEGIN:
+            break; // We don't need such information
+            
         case ir::instruction_type_t::INC:
         case ir::instruction_type_t::DEC:
         case ir::instruction_type_t::SIN:

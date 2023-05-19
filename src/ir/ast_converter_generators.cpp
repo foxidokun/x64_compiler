@@ -310,6 +310,8 @@ result_t ir::convert_func_def(converter_t *converter, tree::node_t *node, code_t
     EMIT_I (JMP, func_def_end_ir_indx);                                     // jmp func_def_end
     register_function_label(converter, node->data);               // func:
 
+    EMIT_I(FUNC_BEGIN, node->data);                                         // *service node*
+
     convert_func_def_args(converter, node->left, ir_code);            // ... load func args ...
     UNWRAP_ERROR(subtree_convert(converter, node->right, ir_code));   // ... func body ...
 
