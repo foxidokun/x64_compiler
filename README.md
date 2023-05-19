@@ -131,6 +131,8 @@ int func (int a, int b, int c) {
 
 [//]: # (Но при этом в устройстве компилятора термин IR не использовать)
 
+[//]: # (Упомянуть двухпроходную схему)
+
 Сам бекенд также имеет модульную структуру. Этап компиляции AST в машинный код разбит на три этапа: 
 1. AST компилируется в линейное промежуточное представление (Backend IR) — массив структур, являющихся ассемблерным кодом
 для абстрактного стекового процессора (подробнее далее в секции IR).
@@ -183,8 +185,111 @@ int func (int a, int b, int c) {
 ### Структура ELF файла
 ![img.png](images/elf_structure.png)
 
+В результате компиляции создается исполняемый ELF файл, содержащий оттранслированный код и код стандартной библиотеки.
+
+Для этого в исполняемый файл записываются следующие заголовки:
+
+1. **Заголовок ELF файла** содержит общую информацию про бинарник: архитектуру, адрес входа, количество и местоположение
+заголовков сегментов. 
+
+```c++
+const Elf64_Ehdr ELF_HEADER = {
+    .e_ident = {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3, // Magic signature
+                ELFCLASS64,                         // 64-bit system
+                ELFDATA2LSB,                        // LittleEndian / BigEndian
+                EV_CURRENT,                         // Version = Current
+                ELFOSABI_NONE,                      // Non specified system
+                0
+                },
+                
+    .e_type    = ET_EXEC,                      // File type = Executable
+    .e_machine = EM_X86_64,                    // Arch = amd64
+    .e_version = EV_CURRENT,                   // Version = Current
+    
+    .e_entry   = 0x401000,                     // Fixed load addr
+    
+    .e_phoff    = sizeof(Elf64_Ehdr),          // Offset of program header table. We took size of elf header
+    .e_shoff    = 0,                           // Offset of segment header table. Not used => 0
+    
+    .e_flags    = 0,                           // Extra flags: no flags
+    .e_ehsize   = sizeof(Elf64_Ehdr),	       // Size of this header.
+    
+    .e_phentsize = sizeof(Elf64_Phdr),         // Size of Program header table entry.
+    .e_phnum     = NUM_PHEADERS,               // Number of pheader entries. (system + stdlib + code + ram)
+    
+    .e_shentsize = sizeof(Elf64_Shdr),         // Size of Segment header entry.
+    .e_shnum     = 0,                          // Number of segments in programm.
+    .e_shstrndx  = 0,                          // Index of string table. (Explained in further parts).
+};
+
+```
+
+2. **Заголовки сегментов** содержат информацию про каждый сегмент программы, его права, адрес загрузки и размер.
+Данный компилятор использует только 4 сегмента:
+
+* **Служебный сегмент**
+```c++
+Elf64_Phdr SYSTEM_PHEADER = {
+        .p_type   = PT_LOAD    , /* [PT_LOAD] */
+        .p_flags  = PF_R       , /* read */
+        .p_offset = 0          , /* (bytes into file) */
+        .p_vaddr  = 0x400000   , /* (virtual addr at runtime) */
+        .p_paddr  = 0x400000   , /* (physical addr at runtime) */
+        .p_filesz = sizeof(Elf64_Ehdr) + NUM_PHEADERS * sizeof(Elf64_Phdr), /* (bytes in file) */
+        .p_memsz  = sizeof(Elf64_Ehdr) + NUM_PHEADERS * sizeof(Elf64_Phdr), /* (bytes in mem at runtime) */
+        .p_align  = 4096       , /* (min mem alignment in bytes) */
+};
+```
+
+Данный заголовок говорит загрузчику ELF файла скопировать ELF заголовки по адресу `0x400000` с правами только на чтение, он присутствует во всех исполняемых ELF файлах.
+
+* **Сегмент стандартной библиотеки**
+```c++
+Elf64_Phdr STDLIB_PHEADER = {
+        .p_type   = PT_LOAD,
+        .p_flags  = PF_R | PF_X,           /* Read & Execute */
+        .p_offset = 4096,                  /* (bytes into file) */
+        .p_vaddr  = 0x403000,              /* (virtual addr at runtime) */
+        .p_paddr  = 0x403000,              /* (physical addr at runtime) */
+        .p_filesz = x64::STDLIB_SIZE,      /* (bytes in file) */
+        .p_memsz  = x64::STDLIB_SIZE,      /* (bytes in mem at runtime) */
+        .p_align  = 4096,                  /* (min mem alignment in bytes) */
+};
+```
+
+Согласно этому заголовку код стандартной библиотеки будет загружен по адресу `0x401000` с правами на чтение и исполнение.
+Поскольку код из исполняемого файла на самом деле не копируется, а отображается в память, то все сегменты обязаны
+начинаться с адресов, кратных размеру страницы — 4096 байт. Поэтому стандартная библиотека записывается в бинарник начиная с 
+4096 байта, а не сразу после заголовков.
+
+* **Сегмент сгенерированного кода**
+
+Сегмент сгенерированного кода отличается от стандартной библиотеки лишь адресом загрузки — `0x401000`, совпадающим 
+с адресом входа, прописанным в ELF заголовке (поле `.e_entry`). Таким образом после загрузки ELF файла в память начинает
+исполняться именно этот сегмент.
+
+* **Сегмент оперативной памяти**
+Главное отличие сегмента оперативной памяти от остальных — он не занимает места на диске. Вместо этого при загрузке ELF файла
+операционная система сама создаст сегмент заданного размера и заполнит его нулями. Выражается это в нулевом поле
+`.p_filesz`, отвечающим за размер сегмента в файле, и не нулевом `.p_memsz`, отвечающим за размер после загрузки.
+
+```c++
+const Elf64_Phdr BSS_PHEADER = {
+        .p_type   = PT_LOAD,
+        .p_flags  = PF_R | PF_W,
+        .p_offset = 0,              /* (bytes into file) */
+        .p_vaddr  = 0x404000,       /* (virtual addr at runtime) */
+        .p_paddr  = 0x404000,       /* (physical addr at runtime) */
+        .p_filesz = 0,              /* (bytes in file) */
+        .p_memsz  = x64::RAMSIZE,   /* (bytes in mem at runtime) */
+        .p_align  = 4096,           /* (min mem alignment in bytes) */
+};
+```
+
 ### Стандартная библиотека
 
-
+[//]: # (Тут про процесс загрузки стандартной библиотеки)
 
 ### Сравнение времени работы
+
+[//]: # (Сравнить времена работы лол)
