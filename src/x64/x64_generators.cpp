@@ -94,7 +94,7 @@ void x64::emit_add_or_sub(code_t *self, ir::instruction_t *ir_instruct) {
             .REX    = REX_BYTE_IF_64_BIT,
             .opcode = (is_add) ? ADD_mem_reg : SUB_mem_reg,
             .ModRM  = DOUBLE_REG_MODRM_MODE_BIT,
-            .SIB    = REG_RSP << SIB_BASE_OFFSET | REG_RSP << SIB_INDEX_OFFSET
+            .SIB    = (REG_RSP << SIB_BASE_OFFSET) | (REG_RSP << SIB_INDEX_OFFSET)
     };
     emit_instruction(self, &additive_instruct);
 }
@@ -204,7 +204,7 @@ void x64::emit_lib_func(code_t *self, ir::instruction_t *ir_instruct) {
             .require_imm64 = true,
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RAX,
+            .ModRM         = IMM_MODRM_MODE_BIT | (REG_RDI << MODRM_RM_OFFSET) | REG_RAX,
             .imm64         = lib_func_addr
     };
     emit_instruction(self, &mov_addr_instr);
@@ -283,7 +283,7 @@ void x64::emit_jmp_or_call(code_t *self, ir::instruction_t *ir_instruct) {
             .require_imm64 = true,
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RAX,
+            .ModRM         = IMM_MODRM_MODE_BIT | (REG_RDI << MODRM_RM_OFFSET) | REG_RAX,
             .imm64         = addr_transl_translate(self->addr_transl, ir_instruct->imm_arg)
     };
     emit_instruction(self, &mov_addr_instr);
@@ -318,7 +318,7 @@ void x64::emit_cond_jmp(code_t *self, ir::instruction_t *ir_instruct) {
             .require_ModRM  = true,
             .REX            = REX_BYTE_IF_64_BIT,
             .opcode         = CMP_reg_reg,
-            .ModRM          = ONLY_REG_MODRM_MODE_BIT | REG_RCX << MODRM_RM_OFFSET | REG_RAX
+            .ModRM          = ONLY_REG_MODRM_MODE_BIT | (REG_RCX << MODRM_RM_OFFSET) | REG_RAX
     };
     emit_instruction(self, &cmp_instruct);
 
@@ -390,7 +390,7 @@ static void x64::mul_fix_precision_multiplier(code_t *self) {
             .require_imm64 = true,
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RCX,
+            .ModRM         = IMM_MODRM_MODE_BIT | (REG_RDI << MODRM_RM_OFFSET) | REG_RCX,
             .imm64         = FIXED_PRECISION_MULTIPLIER
     };
     emit_instruction(self, &load_precision_multiplier);
@@ -416,7 +416,7 @@ static void x64::div_fix_precision_multiplier(code_t *self) {
             .require_imm64 = true,
             .REX           = REX_BYTE_IF_64_BIT,
             .opcode        = MOV_reg_imm,
-            .ModRM         = IMM_MODRM_MODE_BIT | REG_RDI << MODRM_RM_OFFSET | REG_RCX,
+            .ModRM         = IMM_MODRM_MODE_BIT | (REG_RDI << MODRM_RM_OFFSET) | REG_RCX,
             .imm64         = FIXED_PRECISION_MULTIPLIER
     };
     emit_instruction(self, &load_precision_multiplier);
