@@ -3,6 +3,13 @@
 
 // -------------------------------------------------------------------------------------------------
 
+// Number of prog headers:
+// - System header
+// - Generated code header
+// - stdlib code header
+// - RAM (.bss) header
+const int NUM_PHEADERS = 4;
+
 const Elf64_Ehdr ELF_HEADER = {
         .e_ident = {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3, // Magic signature
                     ELFCLASS64,                                     // 64-bit system
@@ -24,7 +31,7 @@ const Elf64_Ehdr ELF_HEADER = {
         .e_ehsize   = sizeof(Elf64_Ehdr),	       // Size of this header.
 
         .e_phentsize = sizeof(Elf64_Phdr),         // Size of Programm header table entry.
-        .e_phnum     = 4,                          // Number of pheader entries. (system + stdlib + code + bss)
+        .e_phnum     = NUM_PHEADERS,               // Number of pheader entries. (system + stdlib + code + bss)
 
         .e_shentsize = sizeof(Elf64_Shdr),         // Size of Segment header entry.
         .e_shnum     = 0,                          // Number of segments in programm.
@@ -37,8 +44,8 @@ const Elf64_Phdr SYSTEM_PHEADER = {
         .p_offset = 0          , /* (bytes into file) */
         .p_vaddr  = 0x400000   , /* (virtual addr at runtime) */
         .p_paddr  = 0x400000   , /* (physical addr at runtime) */
-        .p_filesz = 288        , /* (bytes in file) */
-        .p_memsz  = 288        , /* (bytes in mem at runtime) */
+        .p_filesz = sizeof(Elf64_Ehdr) + NUM_PHEADERS * sizeof(Elf64_Phdr), /* (bytes in file) */
+        .p_memsz  = sizeof(Elf64_Ehdr) + NUM_PHEADERS * sizeof(Elf64_Phdr), /* (bytes in mem at runtime) */
         .p_align  = 4096       , /* (min mem alignment in bytes) */
 };
 
@@ -48,8 +55,8 @@ const Elf64_Phdr CODE_PHEADER_TEMPLATE = {
         .p_offset = x64::CODE_FILE_POS, /* (bytes into file) */
         .p_vaddr  = x64::CODE_BASE_ADDR, /* (virtual addr at runtime) */
         .p_paddr  = x64::CODE_BASE_ADDR, /* (physical addr at runtime) */
-        .p_filesz = 0          , /* (bytes in file) */
-        .p_memsz  = 0          , /* (bytes in mem at runtime) */
+        .p_filesz = 0          , /* (bytes in file) */              // This field will be updated later, it is just struct template
+        .p_memsz  = 0          , /* (bytes in mem at runtime) */    // This field will be updated later, it is just struct template
         .p_align  = 4096       , /* (min mem alignment in bytes) */
 };
 
