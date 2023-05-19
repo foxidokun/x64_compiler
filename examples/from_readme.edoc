@@ -7,11 +7,12 @@
 
 (c, b, a) func fn
 [
+    ; b / a = d let
     (b > a) if
     {
         ; c return
     } else {
-        ; b / a return
+        ; d return
     }
 ]
 

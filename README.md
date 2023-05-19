@@ -66,10 +66,12 @@ BuiltInFunc    ::= L_BRACKET Expression R_BRACKET (PRINT|SQRT|SIN)
 следующий код на C
 ```c
 int func (int a, int b, int c) {
+    int d = a / b;
+    
     if (a > b) {
         return c;
     } else {
-        return a / b;
+        return d;
     }   
 }
 ```
@@ -77,14 +79,17 @@ int func (int a, int b, int c) {
 ```rust
 (c, b, a) func fn
 [
+    ; b / a = d let
     (b > a) if
     {
         ; c return
     } else {
-        ; b / a return
+        ; d return
     }
 ]
 ```
+
+Полную версию этого примера 
 
 [//]: # (TODO Тут не хватает присваиваний, да и в целом описания синтаксиса чуть более подробного чем C-like)
 
