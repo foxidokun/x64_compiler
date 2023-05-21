@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
 
-if [ $# -l 3 ]; then
+if [ $# -lt 3 ]; then
     echo "Usage: ./compile.sh <AST file> <output bin path>"
     exit
 fi
