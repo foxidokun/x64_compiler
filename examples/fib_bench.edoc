@@ -26,9 +26,9 @@
 
 ; 0 = cnt let
 
-(1000 < cnt) while
+(10000 < cnt) while
 {
-    ; ( (10) fib) print
+    ; ( (15) fib) print
 
     ; 1 + cnt = cnt
 }

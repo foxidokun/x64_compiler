@@ -102,7 +102,7 @@
 
 ; 0 = cnt let
 
-(1000 < cnt) while
+(10000 < cnt) while
 {
     ; 2 = a let
     ; 2 = b let
