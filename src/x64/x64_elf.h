@@ -18,7 +18,7 @@ namespace x64 {
         SQRT   = 0x1FB
     };
 
-    const int STDLIB_SIZE = 526;
+    const int STDLIB_SIZE     = 689;
     const int STDLIB_FILE_POS = 4096;
     const int CODE_FILE_POS   = 8192;
 
