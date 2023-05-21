@@ -7,6 +7,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //#define DEBUG_BREAK
+//#define DEBUG_NOP_BYTE
 
 const int RAM_ADDR_REG    = x64::REG_R8;  // r8
 
@@ -376,7 +377,7 @@ static void x64::generate_memory_arguments(instruction_t *x64_instruct, ir::inst
 //----------------------------------------------------------------------------------------------------------------------
 
 static inline void x64::emit_debug_nop(code_t *self) {
-#ifndef NDEBUG
+#ifdef DEBUG_NOP_BYTE
     self->exec_buf[self->exec_buf_size] = 0x90;
     self->exec_buf_size++;
 #endif
