@@ -1,0 +1,36 @@
+~sya~
+
+(x) print fn
+[
+; (x) __builtin_print__ return
+]
+
+
+;0 = CALL_CNT let
+
+(a) fib fn
+[
+        ; 1 + CALL_CNT = CALL_CNT
+        (2 > a) if
+        {
+                ; (2 - a) fib + (1 - a) fib return
+        } else {
+                ;1 return
+        }
+]
+
+
+;( 2 + 0! + (1 && 1) + 1) fib = x let
+; (x)
+; (CALL_CNT) print
+
+; 0 = cnt let
+
+(1000 < cnt) while
+{
+    ; ( (10) fib) print
+
+    ; 1 + cnt = cnt
+}
+
+~nya~

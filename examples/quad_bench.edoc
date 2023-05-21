@@ -1,0 +1,116 @@
+~sya~
+
+(x) print fn
+[
+    ; (x) __builtin_print__ return
+]
+
+(x) sqrt fn
+[
+    ; (x) __builtin_sqrt__ return
+]
+
+(x) input fn
+[
+    ; __builtin_input__ return
+]
+
+
+
+
+(c, b) linear_solve fn
+[
+    (0 == b) if
+    {
+        (0 == c) if
+        {
+            ;(228) print
+            ;0 return
+        } else {
+            ;(0) print
+            ;0 return
+        }
+    } else {
+        ;(1) print
+        ;(b / (c - 0)) print
+        ;0 return
+    }
+]
+
+
+
+(c, b, a) square_solver fn
+[
+    (0 == a) if  # It is linear equatation actually
+    {
+        ;(c, b) linear_solve
+        ;0 return
+    }
+
+    (0 == b) if
+    {
+        (0 < c) if
+        {
+            ;(2) print
+            ;((c - 0) sqrt + 0) print
+            ;((c - 0) sqrt - 0) print
+            ;0 return
+        }
+
+        (0 == c) if
+        {
+            ;(1) print
+            ;(0) print
+            ;0 return
+        } else {
+            ;(0) print
+            ;0 return
+        }
+    }
+
+    (0 == c) if
+    {
+        ;(2) print
+        ;(0) print
+        ;(a / (b - 0)) print
+        ;0 return
+    }
+
+    ; c * a * 4 - b * b = discr let
+
+    (0 < discr) if
+    {
+        ;(0) print
+        ;0 return
+    }
+
+    (0 == discr) if
+    {
+        ;(1) print
+        ;((a * 2) / (b - 0)) print
+        ;0 return
+    }
+
+    ;(discr) sqrt = disrc_root let
+
+    ;(2) print
+    ;((2 * a) / (disrc_root + b - 0)) print
+    ;((2 * a) / (disrc_root - b - 0)) print
+
+    ;0 return
+]
+
+; 0 = cnt let
+
+(1000 < cnt) while
+{
+    ; 2 = a let
+    ; 2 = b let
+    ; 12 - 0 = c let
+
+    ; (c, b, a) square_solver
+
+    ; 1 + cnt = cnt
+}
+
+~nya~
