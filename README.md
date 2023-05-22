@@ -130,7 +130,7 @@ int func (int a, int b, int c) {
 Построим AST для примера из синтаксической справки:
 
 <details>
-  <summary>Полный код примера</summary>
+  <summary><b>Полный код примера</b></summary>
 
 ```rust
 ~sya~
