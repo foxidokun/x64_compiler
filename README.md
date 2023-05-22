@@ -299,7 +299,7 @@ const Elf64_Phdr BSS_PHEADER = {
 ```bash
     $ cd src/asm_strlib
     $ nasm -f elf64 stdlib.asm                        # Сборка объектного файла
-    $ ld -e safety_entry -s -S stdlib.o -o stdlib.out # Сборка бинарного файла
+    $ ld -e stub_entry -s -S stdlib.o -o stdlib.out # Сборка бинарного файла
 ```
 
 Исполняемый файл используется при добавлении кода стандартной библиотеки в генерируемый бинарный файл. Компилятор загружает `stdlib.out`, анализирует его ELF заголовок и копирует содержащийся

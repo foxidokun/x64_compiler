@@ -26,7 +26,7 @@ bin/x64_compiler: build src/asm_stdlib/stdlib.out
 src/asm_stdlib/stdlib.out: src/asm_stdlib/stdlib.nasm
 	cd src/asm_stdlib && \
 	nasm -f elf64 stdlib.nasm && \
-    ld -e safety_entry -s -S stdlib.o -o stdlib.out
+    ld -e stub_entry -s -S stdlib.o -o stdlib.out
 
 bin:
 	mkdir -p bin

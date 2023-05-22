@@ -3,7 +3,7 @@ global output_asm
 global exit_asm
 global sqrt_asm
 
-global safety_entry
+global stub_entry
 
 section .text
 
@@ -167,7 +167,7 @@ sqrt_asm:
         imul rax, rdi, 10
         ret
 
-safety_entry:
+stub_entry:
         push    rbp
         mov     rbp, rsp
         sub     rsp, 80
