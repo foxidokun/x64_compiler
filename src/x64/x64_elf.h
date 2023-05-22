@@ -6,9 +6,9 @@
 
 namespace x64 {
     enum BASE_ADDRESSES {
-        CODE_BASE_ADDR   = 0x401000,
-        STDLIB_BASE_ADDR = 0x403000,
-        RAM_BASE_ADDR    = 0x404000,
+        CODE_BASE_ADDR   = 0x402000,
+        STDLIB_BASE_ADDR = 0x401000,
+        RAM_BASE_ADDR    = 0x405000,
     };
 
     enum class STDLIB_BINARY_OFFSETS {
