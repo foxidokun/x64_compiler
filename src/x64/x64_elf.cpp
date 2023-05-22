@@ -22,7 +22,7 @@ const Elf64_Ehdr ELF_HEADER = {
         .e_machine = EM_X86_64,
         .e_version = EV_CURRENT,
 
-        .e_entry   = 0x401000,
+        .e_entry   = x64::CODE_BASE_ADDR,
 
         .e_phoff    = sizeof(Elf64_Ehdr),          // Offset of programm header table. We took size of elf header
         .e_shoff    = 0,                           // Offset of segment header table. Not used
